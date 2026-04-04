@@ -6,28 +6,35 @@
 <title>Receipt AI Pro</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;background:#f2f4f7;margin:0}
+:root{
+ --bg:#f3f4f6;
+ --card:#ffffff;
+ --text:#111;
+ --sub:#666;
+ --food:#34d399;
+ --other:#818cf8;
+}
+body{font-family:-apple-system,BlinkMacSystemFont;background:var(--bg);margin:0}
 .container{max-width:520px;margin:auto;padding:16px}
-.card{background:#ffffff;padding:14px;margin-bottom:12px;border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
-h2{margin:0 0 12px 0}
+.card{background:var(--card);padding:14px;margin-bottom:12px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
 input,button,select{width:100%;margin-top:6px;padding:10px;border-radius:8px;border:1px solid #ddd}
 button{background:#111;color:#fff;border:none}
-button.secondary{background:#e5e7eb;color:#111}
 .item{display:flex;gap:6px;margin-top:6px}
 .item input{flex:1}
-.badge{font-size:12px;padding:4px 6px;border-radius:6px}
-.food{background:#d1fae5}
-.other{background:#e5e7eb}
+.badge{padding:4px 6px;border-radius:6px;font-size:12px}
+.food{background:var(--food)}
+.other{background:var(--other);color:#fff}
 .summary{font-size:14px;line-height:1.6}
 </style>
 </head>
 <body>
 <div class="container">
-<h2>レシートAI Pro</h2>
+<h2>Receipt AI Pro</h2>
 
 <div class="card">
 <input type="file" id="file" accept="image/*" multiple>
-<button onclick="scanMultiple()">📷 スキャン（高速）</button>
+<button onclick="scan()">📷 スキャン</button>
+<div id="status"></div>
 </div>
 
 <div class="card">
@@ -38,7 +45,7 @@ button.secondary{background:#e5e7eb;color:#111}
 </div>
 
 <div class="card">
-<h3>明細（編集）</h3>
+<h3>明細</h3>
 <div id="items"></div>
 </div>
 
@@ -58,20 +65,15 @@ button.secondary{background:#e5e7eb;color:#111}
 let db;
 let items=[];
 
-function openDB(){
- return new Promise(res=>{
-  const req=indexedDB.open('receiptDB',5);
-  req.onupgradeneeded=e=>{
-    const db=e.target.result;
-    if(!db.objectStoreNames.contains('receipts')){
-      db.createObjectStore('receipts',{keyPath:'id',autoIncrement:true});
-    }
-  };
-  req.onsuccess=e=>{db=e.target.result;renderSummary();res();};
- });
-}
+// DB
+const req=indexedDB.open('receiptDB',1);
+req.onupgradeneeded=e=>{
+ const db=e.target.result;
+ db.createObjectStore('receipts',{keyPath:'id',autoIncrement:true});
+};
+req.onsuccess=e=>{db=e.target.result;renderSummary();};
 
-// 高速前処理（軽量）
+// 前処理
 async function preprocess(file){
  return new Promise(res=>{
   const img=new Image();
@@ -80,7 +82,7 @@ async function preprocess(file){
   img.onload=()=>{
     const canvas=document.createElement('canvas');
     const ctx=canvas.getContext('2d');
-    const scale=900/img.width; // 軽量化
+    const scale=900/img.width;
     canvas.width=900;
     canvas.height=img.height*scale;
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
@@ -90,6 +92,7 @@ async function preprocess(file){
  });
 }
 
+// 店舗判定
 function detectStore(text){
  if(/セブン|7-ELEVEN/i.test(text)) return 'seven';
  if(/イオン|AEON/i.test(text)) return 'aeon';
@@ -97,54 +100,60 @@ function detectStore(text){
  return 'generic';
 }
 
-function detectCategory(line){
- return /※|＊|軽/.test(line) ? 'food':'other';
+// パース
+function parse(text){
+ const store=detectStore(text);
+ const lines=text.split('\n');
+ let results=[];
+
+ lines.forEach(l=>{
+  if(/合計|小計|内税|釣銭|預り/.test(l)) return;
+
+  const m=l.match(/(\d{1,6})\s?円?$/);
+  if(!m) return;
+
+  let name=l.replace(m[0],'').trim();
+
+  if(store==='seven'){
+    name=name.replace(/\*/g,'');
+  }
+
+  results.push({
+    name:name||'商品',
+    price:parseInt(m[1]),
+    category:/※|＊|軽/.test(l)?'food':'other'
+  });
+ });
+
+ return results;
 }
 
-function cleanLine(l){
- if(/合計|小計|内税|釣銭/.test(l)) return null;
- return l;
-}
-
-function parseByStore(text, store){
- const lines = text.split('\n').map(cleanLine).filter(Boolean);
-
- return lines.map(l=>{
-  const m=l.match(/(\d{1,6})/);
-  if(!m) return null;
-
-  const price=parseInt(m[1]);
-  return {
-    name:l.replace(/\d+/,'').trim(),
-    price,
-    category:detectCategory(l)
-  };
- }).filter(Boolean);
-}
-
-async function scanMultiple(){
+// OCR
+async function scan(){
  const files=document.getElementById('file').files;
  if(!files.length) return;
 
  items=[];
 
  for(const file of files){
-   const canvas=await preprocess(file);
+  const canvas=await preprocess(file);
 
-   const result=await Tesseract.recognize(canvas,'jpn+eng',{
-     tessedit_pageseg_mode: 6
-   });
+  const result=await Tesseract.recognize(canvas,'jpn+eng',{
+    tessedit_pageseg_mode:6,
+    logger:m=>{
+      if(m.status==='recognizing'){
+        document.getElementById('status').innerText = Math.round(m.progress*100)+'%';
+      }
+    }
+  });
 
-   const text=result.data.text;
-   const storeType=detectStore(text);
-
-   const parsed=parseByStore(text, storeType);
-   items = items.concat(parsed);
+  items=items.concat(parse(result.data.text));
  }
 
  render();
 }
 
+// UI
 function render(){
  const el=document.getElementById('items');
  el.innerHTML=items.map((i,idx)=>`
@@ -152,7 +161,7 @@ function render(){
    <input value="${i.name}" onchange="items[${idx}].name=this.value">
    <input type="number" value="${i.price}" onchange="items[${idx}].price=+this.value">
    <span class="badge ${i.category}">${i.category==='food'?'🥦':'📦'}</span>
-   <button class="secondary" onclick="toggle(${idx})">切替</button>
+   <button onclick="toggle(${idx})">切替</button>
   </div>
  `).join('');
 }
@@ -162,41 +171,38 @@ function toggle(i){
  render();
 }
 
+// 税
 function calcTax(price, rate){
- return price - (price / (1 + rate));
+ return price - (price/(1+rate));
 }
 
 function calcTotals(data){
- let total=0, food=0, other=0;
-
+ let total=0,food=0,other=0;
  data.forEach(r=>{
   r.items.forEach(i=>{
-    total += i.price;
+    total+=i.price;
     if(i.category==='food') food+=i.price;
     else other+=i.price;
   });
  });
 
- const foodTax = calcTax(food, 0.08);
- const otherTax = calcTax(other, 0.10);
+ const foodTax=calcTax(food,0.08);
+ const otherTax=calcTax(other,0.10);
 
- return {total, tax: foodTax+otherTax, food, other, foodTax, otherTax};
+ return {total,food,other,tax:foodTax+otherTax,foodTax,otherTax};
 }
 
 function renderSummary(){
  if(!db) return;
-
  const tx=db.transaction('receipts','readonly');
  const store=tx.objectStore('receipts');
- const req=store.getAll();
 
- req.onsuccess=e=>{
+ store.getAll().onsuccess=e=>{
   let data=e.target.result;
 
-  const period=document.getElementById('period').value;
-  if(period==='month'){
+  if(document.getElementById('period').value==='month'){
     const now=new Date();
-    data = data.filter(r=>{
+    data=data.filter(r=>{
       const d=new Date(r.date);
       return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
     });
@@ -205,14 +211,15 @@ function renderSummary(){
   const t=calcTotals(data);
 
   document.getElementById('summary').innerHTML=`
-   総額（税込）: ${Math.round(t.total)}円<br>
+   総額: ${Math.round(t.total)}円<br>
    税額: ${Math.round(t.tax)}円<br>
-   食品: ${Math.round(t.food)}円（税${Math.round(t.foodTax)}円）<br>
-   その他: ${Math.round(t.other)}円（税${Math.round(t.otherTax)}円）
+   食品: ${Math.round(t.food)}円 (税${Math.round(t.foodTax)})<br>
+   その他: ${Math.round(t.other)}円 (税${Math.round(t.otherTax)})
   `;
  };
 }
 
+// 保存
 function save(){
  const tx=db.transaction('receipts','readwrite');
  tx.objectStore('receipts').add({
@@ -220,12 +227,9 @@ function save(){
   date:document.getElementById('date').value,
   items
  });
-
  renderSummary();
  alert('保存完了');
 }
-
-openDB();
 </script>
 </body>
 </html>
