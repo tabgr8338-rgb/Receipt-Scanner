@@ -7,17 +7,34 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{
- --bg:#f3f4f6;
+ --bg:#fafafa; /* ← ここだけ変更（白寄り） */
  --card:#ffffff;
  --text:#111;
  --sub:#666;
  --food:#34d399;
  --other:#818cf8;
 }
-body{font-family:-apple-system,BlinkMacSystemFont;background:var(--bg);margin:0}
+body{
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+ background:var(--bg);
+ margin:0;
+}
 .container{max-width:520px;margin:auto;padding:16px}
-.card{background:var(--card);padding:14px;margin-bottom:12px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
-input,button,select{width:100%;margin-top:6px;padding:10px;border-radius:8px;border:1px solid #ddd}
+.card{
+ background:var(--card);
+ padding:14px;
+ margin-bottom:12px;
+ border-radius:12px;
+ box-shadow:0 2px 6px rgba(0,0,0,0.05)
+}
+h2{margin:0 0 12px 0}
+input,button,select{
+ width:100%;
+ margin-top:6px;
+ padding:10px;
+ border-radius:8px;
+ border:1px solid #ddd
+}
 button{background:#111;color:#fff;border:none}
 .item{display:flex;gap:6px;margin-top:6px}
 .item input{flex:1}
@@ -65,7 +82,6 @@ button{background:#111;color:#fff;border:none}
 let db;
 let items=[];
 
-// DB
 const req=indexedDB.open('receiptDB',1);
 req.onupgradeneeded=e=>{
  const db=e.target.result;
@@ -73,7 +89,6 @@ req.onupgradeneeded=e=>{
 };
 req.onsuccess=e=>{db=e.target.result;renderSummary();};
 
-// 前処理
 async function preprocess(file){
  return new Promise(res=>{
   const img=new Image();
@@ -92,7 +107,6 @@ async function preprocess(file){
  });
 }
 
-// 店舗判定
 function detectStore(text){
  if(/セブン|7-ELEVEN/i.test(text)) return 'seven';
  if(/イオン|AEON/i.test(text)) return 'aeon';
@@ -100,7 +114,6 @@ function detectStore(text){
  return 'generic';
 }
 
-// パース
 function parse(text){
  const store=detectStore(text);
  const lines=text.split('\n');
@@ -128,7 +141,6 @@ function parse(text){
  return results;
 }
 
-// OCR
 async function scan(){
  const files=document.getElementById('file').files;
  if(!files.length) return;
@@ -153,7 +165,6 @@ async function scan(){
  render();
 }
 
-// UI
 function render(){
  const el=document.getElementById('items');
  el.innerHTML=items.map((i,idx)=>`
@@ -171,7 +182,6 @@ function toggle(i){
  render();
 }
 
-// 税
 function calcTax(price, rate){
  return price - (price/(1+rate));
 }
@@ -219,7 +229,6 @@ function renderSummary(){
  };
 }
 
-// 保存
 function save(){
  const tx=db.transaction('receipts','readwrite');
  tx.objectStore('receipts').add({
