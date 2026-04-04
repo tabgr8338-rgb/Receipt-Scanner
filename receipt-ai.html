@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Receipt AI</title>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
   :root {
@@ -22,8 +20,6 @@
   .header-icon{width:40px;height:40px;background:var(--primary);border-radius:10px;display:grid;place-items:center;color:#fff;font-size:20px;flex-shrink:0}
   .header h1{font-size:20px;font-weight:700}
   .header p{font-size:12px;color:var(--muted)}
-  .user-badge{margin-left:auto;font-size:12px;color:var(--muted);text-align:right;cursor:pointer;flex-shrink:0}
-  .user-badge span{display:block;font-weight:700;color:var(--text)}
 
   /* Tab Nav */
   .tab-nav{display:flex;gap:4px;background:#e5e7eb;border-radius:10px;padding:4px;margin-bottom:16px}
@@ -33,12 +29,6 @@
   /* Cards */
   .card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;border:1px solid var(--border)}
   .card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:6px}
-
-  /* Auth */
-  #authCard label{font-size:13px;font-weight:600;display:block;margin-bottom:4px;margin-top:10px}
-  #authCard input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;outline:none;transition:border .15s}
-  #authCard input:focus{border-color:var(--primary)}
-  .auth-toggle{font-size:13px;color:var(--primary);cursor:pointer;text-align:center;margin-top:10px}
 
   /* Upload */
   .upload-area{border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
@@ -66,6 +56,8 @@
   .btn-success:disabled{background:#9ca3af;cursor:not-allowed}
   .btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary)}
   .btn-outline:hover{background:var(--primary-light)}
+  .btn-danger{background:var(--danger);color:#fff}
+  .btn-danger:hover{background:#c53030}
 
   /* Store badge */
   .store-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff3cd;color:#92400e}
@@ -92,16 +84,24 @@
   .summary-val{font-family:'JetBrains Mono',monospace;font-weight:600}
 
   /* History */
-  .history-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;border-radius:8px}
+  .history-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border);transition:background .15s;border-radius:8px}
   .history-item:last-child{border-bottom:none}
   .history-item:hover{background:var(--bg)}
-  .history-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--bg);border:1px solid var(--border);flex-shrink:0}
+  .history-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--bg);border:1px solid var(--border);flex-shrink:0;cursor:pointer}
   .history-thumb-placeholder{width:56px;height:56px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;font-size:22px;flex-shrink:0}
-  .history-info{flex:1;min-width:0}
+  .history-info{flex:1;min-width:0;cursor:pointer}
   .history-store{font-size:13px;font-weight:700;margin-bottom:2px}
   .history-date{font-size:11px;color:var(--muted);margin-bottom:4px}
   .history-total{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--primary)}
   .history-cats{font-size:11px;color:var(--muted);margin-top:2px}
+  .history-del{background:none;border:none;color:#ccc;cursor:pointer;font-size:18px;padding:4px;border-radius:6px;transition:color .15s;align-self:center;flex-shrink:0}
+  .history-del:hover{color:var(--danger)}
+
+  /* Filter bar */
+  .filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+  .filter-chip{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;border:1.5px solid var(--border);background:#fff;color:var(--muted);cursor:pointer;transition:all .15s;font-family:inherit}
+  .filter-chip.active{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+  .filter-select{padding:5px 10px;border-radius:999px;font-size:12px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-family:inherit;cursor:pointer;outline:none}
 
   /* Detail Modal */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center}
@@ -124,6 +124,14 @@
 
   .empty{text-align:center;padding:28px 0;color:var(--muted);font-size:14px}
   .empty span{font-size:32px;display:block;margin-bottom:8px}
+
+  /* Settings */
+  .setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+  .setting-row:last-child{border-bottom:none}
+  .setting-label{font-size:14px;font-weight:600}
+  .setting-sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .setting-input{width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:14px;text-align:right;outline:none}
+  .setting-input:focus{border-color:var(--primary)}
 </style>
 </head>
 <body>
@@ -133,73 +141,117 @@
   <div class="header">
     <div class="header-icon">🧾</div>
     <div><h1>Receipt AI</h1><p>レシートをスキャンして自動仕訳</p></div>
-    <div class="user-badge" id="userBadge" style="display:none" onclick="signOut()">
-      <span id="userEmail"></span>ログアウト
+  </div>
+
+  <!-- Tab Nav -->
+  <div class="tab-nav">
+    <button class="tab-btn active" id="tabScan"    onclick="switchTab('scan')">📷 スキャン</button>
+    <button class="tab-btn"        id="tabHistory" onclick="switchTab('history')">📋 履歴</button>
+    <button class="tab-btn"        id="tabSettings"onclick="switchTab('settings')">⚙ 設定</button>
+  </div>
+
+  <!-- ===== SCAN TAB ===== -->
+  <div id="scanTab">
+    <div class="card">
+      <div class="card-title">📷 スキャン</div>
+      <div class="upload-area">
+        <input type="file" id="file" accept="image/*" onchange="onFileSelect(this)">
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">画像を選択 / カメラで撮影</div>
+        <div class="upload-sub">JPEG・PNG・HEIC対応</div>
+        <div class="file-name" id="fileName"></div>
+      </div>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-label">
+          <span id="progressLabel">準備中...</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <button class="btn btn-primary" id="scanBtn" onclick="scan(this)" disabled>🔍 スキャン開始</button>
+    </div>
+
+    <div class="card" id="itemsCard" style="display:none">
+      <div class="card-title">📋 明細 <span id="storeBadge"></span></div>
+      <div id="items"></div>
+      <div id="summaryArea" style="margin-top:12px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-outline" style="width:50%" onclick="confirmData()">確認</button>
+        <button class="btn btn-success" style="width:50%" id="saveBtn" onclick="save(this)">💾 保存</button>
+      </div>
     </div>
   </div>
 
-  <!-- Auth -->
-  <div class="card" id="authCard">
-    <div class="card-title">🔐 ログイン / 新規登録</div>
-    <label>メールアドレス</label>
-    <input type="email" id="emailInput" placeholder="you@example.com">
-    <label>パスワード（8文字以上）</label>
-    <input type="password" id="passwordInput" placeholder="••••••••">
-    <button class="btn btn-primary" id="authBtn" onclick="signIn()">ログイン</button>
-    <div class="auth-toggle" onclick="toggleAuthMode()">アカウントをお持ちでない方 → 新規登録</div>
+  <!-- ===== HISTORY TAB ===== -->
+  <div id="historyTab" style="display:none">
+    <div class="card">
+      <div class="card-title">📋 保存済みレシート</div>
+      <div class="filter-bar">
+        <button class="filter-chip active" onclick="setFilter('all',this)">すべて</button>
+        <button class="filter-chip" onclick="setFilter('food',this)">🥦 食品</button>
+        <button class="filter-chip" onclick="setFilter('daily',this)">🧴 日用品</button>
+        <button class="filter-chip" onclick="setFilter('other',this)">📦 その他</button>
+        <select class="filter-select" id="periodSelect" onchange="loadHistory()">
+          <option value="all">全期間</option>
+          <option value="today">今日</option>
+          <option value="week" selected>今週</option>
+          <option value="month">今月</option>
+          <option value="3months">3ヶ月</option>
+          <option value="year">今年</option>
+        </select>
+      </div>
+      <!-- 合計サマリー -->
+      <div id="historySummary" style="margin-bottom:12px;padding:10px;background:var(--primary-light);border-radius:8px;display:none">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px">
+          <span>期間合計（税込）</span><span id="histTotalInc" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--primary)">¥0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
+          <span>うち消費税</span><span id="histTotalTax" style="font-family:'JetBrains Mono',monospace">¥0</span>
+        </div>
+      </div>
+      <div id="historyList"></div>
+    </div>
   </div>
 
-  <!-- Main App -->
-  <div id="mainApp" style="display:none">
-
-    <!-- Tab Nav -->
-    <div class="tab-nav">
-      <button class="tab-btn active" id="tabScan" onclick="switchTab('scan')">📷 スキャン</button>
-      <button class="tab-btn" id="tabHistory" onclick="switchTab('history')">📋 履歴</button>
-    </div>
-
-    <!-- Scan Tab -->
-    <div id="scanTab">
-      <div class="card">
-        <div class="card-title">📷 スキャン</div>
-        <div class="upload-area">
-          <input type="file" id="file" accept="image/*" onchange="onFileSelect(this)">
-          <div class="upload-icon">📄</div>
-          <div class="upload-label">画像を選択 / ドロップ</div>
-          <div class="upload-sub">JPEG・PNG・HEIC対応</div>
-          <div class="file-name" id="fileName"></div>
-        </div>
-        <div class="progress-wrap" id="progressWrap">
-          <div class="progress-label">
-            <span id="progressLabel">準備中...</span>
-            <span id="progressPct">0%</span>
-          </div>
-          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-        </div>
-        <button class="btn btn-primary" id="scanBtn" onclick="scan(this)" disabled>🔍 スキャン開始</button>
-      </div>
-
-      <div class="card" id="itemsCard" style="display:none">
-        <div class="card-title">📋 明細 <span id="storeBadge"></span></div>
-        <div id="items"></div>
-        <div id="summaryArea" style="margin-top:12px"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn btn-outline" style="width:50%" onclick="confirmData()">確認</button>
-          <button class="btn btn-success" style="width:50%" id="saveBtn" onclick="save(this)">💾 保存</button>
+  <!-- ===== SETTINGS TAB ===== -->
+  <div id="settingsTab" style="display:none">
+    <div class="card">
+      <div class="card-title">⚙ 税率設定</div>
+      <div class="setting-row">
+        <div><div class="setting-label">食品（軽減税率）</div><div class="setting-sub">※・軽 マーク商品</div></div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="number" id="taxFood" class="setting-input" value="8" min="0" max="100" step="0.1">
+          <span style="font-size:13px">%</span>
         </div>
       </div>
-    </div>
-
-    <!-- History Tab -->
-    <div id="historyTab" style="display:none">
-      <div class="card">
-        <div class="card-title">📋 保存済みレシート</div>
-        <div id="historyList"></div>
+      <div class="setting-row">
+        <div><div class="setting-label">日用品・その他（標準税率）</div><div class="setting-sub">通常の商品・サービス</div></div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="number" id="taxOther" class="setting-input" value="10" min="0" max="100" step="0.1">
+          <span style="font-size:13px">%</span>
+        </div>
       </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6">
+        ※ 税率変更は今後の登録にのみ適用されます。過去データは登録時の税率を保持します。
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">✓ 保存</button>
     </div>
 
+    <div class="card">
+      <div class="card-title">🗄 データ管理</div>
+      <div class="setting-row">
+        <div><div class="setting-label">データ保存期間</div><div class="setting-sub">超過データを自動削除</div></div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="number" id="retentionDays" class="setting-input" value="365" min="30" max="3650">
+          <span style="font-size:13px">日</span>
+        </div>
+      </div>
+      <button class="btn btn-outline" style="margin-top:12px" onclick="exportData()">📤 JSONエクスポート</button>
+      <button class="btn btn-danger"  style="margin-top:8px"  onclick="clearAllData()">🗑 全データ削除</button>
+    </div>
   </div>
-</div>
+
+</div><!-- /.app -->
 
 <!-- Detail Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
@@ -217,19 +269,99 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ★ ここだけ書き換える
-const SUPABASE_URL  = 'https://ddmiyismvlzlkgmuyayp.supabase.co'; // ← Project URL
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbWl5aXNtdmx6bGtnbXV5YXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODQ2MzksImV4cCI6MjA5MDg2MDYzOX0.hnrBZ4jxX4WFCy0Xk_a0pmTYhkMVVFdH-7cwehtZ1T0';                   // ← anon public key
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// =========================================
+// IndexedDB
+// =========================================
+const DB_NAME = 'receiptAI', DB_VER = 1;
+let db;
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-let items = [], dictionary = [], currentUser = null, isSignUp = false;
-let currentFile = null; // スキャン対象ファイルを保持
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('receipts')) {
+        const s = d.createObjectStore('receipts', { keyPath: 'id', autoIncrement: true });
+        s.createIndex('date', 'date');
+      }
+      if (!d.objectStoreNames.contains('dictionary')) {
+        d.createObjectStore('dictionary', { keyPath: 'raw' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror   = e => rej(e.target.error);
+  });
+}
 
-// ─────────────────────────────────────────
-// TOAST
-// ─────────────────────────────────────────
+function dbAdd(store, data) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).add(data);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function dbGetAll(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function dbDelete(store, id) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(id);
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function dbClear(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).clear();
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function dbPut(store, data) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(data);
+    req.onsuccess = () => res();
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+// =========================================
+// Settings
+// =========================================
+let settings = { taxFood: 8, taxOther: 10, retentionDays: 365 };
+
+function loadSettings() {
+  const s = localStorage.getItem('receiptAI_settings');
+  if (s) settings = { ...settings, ...JSON.parse(s) };
+  document.getElementById('taxFood').value        = settings.taxFood;
+  document.getElementById('taxOther').value       = settings.taxOther;
+  document.getElementById('retentionDays').value  = settings.retentionDays;
+}
+
+function saveSettings() {
+  settings.taxFood       = parseFloat(document.getElementById('taxFood').value)       || 8;
+  settings.taxOther      = parseFloat(document.getElementById('taxOther').value)      || 10;
+  settings.retentionDays = parseInt(document.getElementById('retentionDays').value)   || 365;
+  localStorage.setItem('receiptAI_settings', JSON.stringify(settings));
+  toast('設定を保存しました', 'success');
+}
+
+// =========================================
+// Toast
+// =========================================
 function toast(msg, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
@@ -238,96 +370,30 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.remove(), 3000);
 }
 
-// ─────────────────────────────────────────
-// TAB
-// ─────────────────────────────────────────
+// =========================================
+// Tab
+// =========================================
 function switchTab(tab) {
-  document.getElementById('scanTab').style.display    = tab === 'scan'    ? 'block' : 'none';
-  document.getElementById('historyTab').style.display = tab === 'history' ? 'block' : 'none';
-  document.getElementById('tabScan').classList.toggle('active',    tab === 'scan');
-  document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
+  ['scan','history','settings'].forEach(t => {
+    document.getElementById(t + 'Tab').style.display = t === tab ? 'block' : 'none';
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+  });
   if (tab === 'history') loadHistory();
 }
 
-// ─────────────────────────────────────────
-// AUTH
-// ─────────────────────────────────────────
-function toggleAuthMode() {
-  isSignUp = !isSignUp;
-  document.getElementById('authBtn').textContent = isSignUp ? '新規登録' : 'ログイン';
-  document.querySelector('.auth-toggle').textContent = isSignUp
-    ? '既にアカウントをお持ちの方 → ログイン'
-    : 'アカウントをお持ちでない方 → 新規登録';
+// =========================================
+// Image processing
+// =========================================
+let currentFile = null;
+
+function onFileSelect(input) {
+  const f = input.files[0]; if (!f) return;
+  currentFile = f;
+  document.getElementById('fileName').textContent = '📎 ' + f.name;
+  document.getElementById('scanBtn').disabled = false;
 }
 
-async function signIn() {
-  const email    = document.getElementById('emailInput').value.trim();
-  const password = document.getElementById('passwordInput').value;
-
-  // ── フロントバリデーション ──
-  if (!email || !password) { toast('メールとパスワードを入力してください', 'warn'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('正しいメールアドレスを入力してください', 'warn'); return; }
-  if (password.length < 8) { toast('パスワードは8文字以上にしてください', 'warn'); return; }
-
-  try {
-    const { data, error } = isSignUp
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    if (isSignUp && !data.session) { toast('確認メールを送信しました', 'warn'); return; }
-    currentUser = data.user || data.session?.user;
-    onLoggedIn();
-  } catch (err) {
-    toast('❌ ' + (err.message || '認証失敗'), 'error');
-  }
-}
-
-async function signOut() {
-  await supabase.auth.signOut();
-  currentUser = null; items = []; dictionary = [];
-  document.getElementById('authCard').style.display = 'block';
-  document.getElementById('mainApp').style.display  = 'none';
-  document.getElementById('userBadge').style.display = 'none';
-  toast('ログアウトしました', 'warn');
-}
-
-function onLoggedIn() {
-  document.getElementById('authCard').style.display  = 'none';
-  document.getElementById('mainApp').style.display   = 'block';
-  document.getElementById('userBadge').style.display = 'block';
-  document.getElementById('userEmail').textContent   = currentUser.email;
-  loadDict();
-}
-
-// ─────────────────────────────────────────
-// SUPABASE DB
-// ─────────────────────────────────────────
-async function loadDict() {
-  try {
-    const { data, error } = await supabase
-      .from('dictionary').select('*').eq('user_id', currentUser.id);
-    if (error) throw error;
-    dictionary = data || [];
-  } catch (err) { console.warn('[loadDict]', err.message); }
-}
-
-async function dbSaveReceipt(payload) {
-  const { error } = await supabase.from('receipts').insert(payload);
-  if (error) throw new Error('保存失敗: ' + error.message);
-}
-
-async function dbLearn(entries) {
-  if (!entries.length) return;
-  const { error } = await supabase.from('dictionary')
-    .upsert(entries, { onConflict: 'raw,user_id' });
-  if (error) console.warn('[learn]', error.message);
-}
-
-// ─────────────────────────────────────────
-// IMAGE: OCR用（高品質）とサムネイル用（軽量）を分離
-// ─────────────────────────────────────────
 function preprocessForOCR(file) {
-  // 1200px・Otsu二値化 → OCR精度優先
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('ファイル読み込み失敗'));
@@ -342,7 +408,6 @@ function preprocessForOCR(file) {
           const ctx = canvas.getContext('2d');
           ctx.filter = 'contrast(1.4) brightness(1.1)';
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Otsu binarization
           const id = ctx.getImageData(0, 0, canvas.width, canvas.height), d = id.data;
           const hist = new Array(256).fill(0);
           for (let i = 0; i < d.length; i += 4)
@@ -362,7 +427,7 @@ function preprocessForOCR(file) {
           }
           ctx.putImageData(id, 0, 0);
           resolve(canvas.toDataURL('image/jpeg', 0.9));
-        } catch (err) { reject(err); }
+        } catch(err) { reject(err); }
       };
       img.src = e.target.result;
     };
@@ -371,11 +436,9 @@ function preprocessForOCR(file) {
 }
 
 function makeThumbnail(file) {
-  // 400px・カラー・JPEG60% → 履歴表示専用（約30〜80KB）
-  // OCRとは完全に独立。画質を落としてもOCR精度には影響しない。
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const reader = new FileReader();
-    reader.onerror = () => resolve(null); // サムネイル失敗は致命的でないのでnullで継続
+    reader.onerror = () => resolve(null);
     reader.onload = e => {
       const img = new Image();
       img.onerror = () => resolve(null);
@@ -384,9 +447,8 @@ function makeThumbnail(file) {
           const W = 400, scale = W / img.width;
           const canvas = document.createElement('canvas');
           canvas.width = W; canvas.height = Math.round(img.height * scale);
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // カラーのまま保存
-          canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.6);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.6));
         } catch { resolve(null); }
       };
       img.src = e.target.result;
@@ -395,29 +457,9 @@ function makeThumbnail(file) {
   });
 }
 
-async function uploadThumbnail(file, receiptId) {
-  // Supabase Storageにサムネイルをアップロード
-  try {
-    const blob = await makeThumbnail(file);
-    if (!blob) return null;
-    const path = `${currentUser.id}/${receiptId}.jpg`;
-    const { error } = await supabase.storage.from('receipt-thumbs').upload(path, blob, {
-      contentType: 'image/jpeg', upsert: true
-    });
-    if (error) { console.warn('[uploadThumbnail]', error.message); return null; }
-    return path;
-  } catch (err) { console.warn('[uploadThumbnail]', err.message); return null; }
-}
-
-function getThumbnailUrl(path) {
-  if (!path) return null;
-  const { data } = supabase.storage.from('receipt-thumbs').getPublicUrl(path);
-  return data?.publicUrl || null;
-}
-
-// ─────────────────────────────────────────
-// STORE / CATEGORY
-// ─────────────────────────────────────────
+// =========================================
+// Store / Category detection
+// =========================================
 function detectStore(t) {
   if (/セブン|7[-‐]ELEVEN/i.test(t))         return 'seven';
   if (/イオン|AEON/i.test(t))                return 'aeon';
@@ -436,9 +478,9 @@ function detectCategory(l) {
   return 'other';
 }
 
-// ─────────────────────────────────────────
-// PARSERS
-// ─────────────────────────────────────────
+// =========================================
+// Parsers
+// =========================================
 function buildItem(raw, name, unitPrice, qty = 1, confidence = 0.8) {
   return { originalName: raw, name, unitPrice, qty, subtotal: unitPrice * qty, category: detectCategory(raw), confidence };
 }
@@ -482,9 +524,15 @@ function parseByStore(store, text) {
   return result.length > 0 ? result : parseGeneric(lines);
 }
 
-// ─────────────────────────────────────────
-// LEVENSHTEIN — 先頭文字フィルタ付き
-// ─────────────────────────────────────────
+// =========================================
+// Dictionary (Levenshtein)
+// =========================================
+let dictionary = [];
+
+async function loadDict() {
+  dictionary = await dbGetAll('dictionary');
+}
+
 function levenshtein(a, b) {
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
@@ -501,7 +549,6 @@ function similarity(a, b) {
   return max ? 1 - levenshtein(a, b) / max : 1;
 }
 function normalizeName(name) {
-  // ① 先頭文字が一致するものだけに絞り込み（大規模辞書でも高速）
   const candidates = dictionary.filter(d => d.raw && d.raw[0] === name[0]);
   let best = name, bestScore = 0;
   for (const d of candidates) {
@@ -510,28 +557,24 @@ function normalizeName(name) {
   }
   return best;
 }
+async function learnDict(items) {
+  for (const i of items) {
+    if (i.originalName && i.originalName !== i.name) {
+      await dbPut('dictionary', { raw: i.originalName, normalized: i.name, count: 1 });
+    }
+  }
+}
 
-// ─────────────────────────────────────────
-// XSS対策 — シングルクォートも含む完全版
-// ─────────────────────────────────────────
+// =========================================
+// XSS
+// =========================================
 function escHtml(s) {
-  return String(s)
-    .replace(/&/g,  '&amp;')
-    .replace(/"/g,  '&quot;')
-    .replace(/'/g,  '&#x27;')  // ← 追加
-    .replace(/</g,  '&lt;')
-    .replace(/>/g,  '&gt;');
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ─────────────────────────────────────────
-// UI HELPERS
-// ─────────────────────────────────────────
-function onFileSelect(input) {
-  const f = input.files[0]; if (!f) return;
-  currentFile = f;
-  document.getElementById('fileName').textContent = '📎 ' + f.name;
-  document.getElementById('scanBtn').disabled = false;
-}
+// =========================================
+// Progress
+// =========================================
 function setProgress(label, pct) {
   document.getElementById('progressWrap').classList.add('show');
   document.getElementById('progressLabel').textContent = label;
@@ -540,17 +583,18 @@ function setProgress(label, pct) {
 }
 function hideProgress() { document.getElementById('progressWrap').classList.remove('show'); }
 
-// ─────────────────────────────────────────
-// SCAN — btn引数で受け取りevent依存を排除
-// ─────────────────────────────────────────
+// =========================================
+// Scan
+// =========================================
+let items = [], currentStore = 'generic';
+
 async function scan(btn) {
   const file = document.getElementById('file').files[0];
   if (!file) { toast('ファイルを選択してください', 'warn'); return; }
   btn.disabled = true;
   try {
     setProgress('画像を前処理中...', 15);
-    const img = await preprocessForOCR(file)
-      .catch(e => { throw new Error('前処理失敗: ' + e.message); });
+    const img = await preprocessForOCR(file).catch(e => { throw new Error('前処理失敗: ' + e.message); });
 
     setProgress('OCR実行中...', 35);
     const ocr = await Tesseract.recognize(img, 'jpn+eng', {
@@ -561,31 +605,30 @@ async function scan(btn) {
     if (text.trim().length < 5) throw new Error('テキストを認識できませんでした');
 
     setProgress('明細を解析中...', 85);
-    const store = detectStore(text);
-    const parsed = parseByStore(store, text);
+    currentStore = detectStore(text);
+    const parsed = parseByStore(currentStore, text);
     if (!parsed.length) toast('明細が検出できませんでした', 'warn');
 
     setProgress('辞書照合中...', 95);
     items = parsed.map(i => ({ ...i, name: normalizeName(i.name) }));
 
     document.getElementById('storeBadge').innerHTML =
-      `<span class="store-badge">${STORE_LABELS[store] || '🧾 汎用'}</span>`;
+      `<span class="store-badge">${STORE_LABELS[currentStore] || '🧾 汎用'}</span>`;
     setProgress('完了', 100);
     render();
     document.getElementById('itemsCard').style.display = 'block';
     toast(`${items.length}件の明細を検出しました`, 'success');
   } catch (err) {
     toast('❌ ' + err.message, 'error');
-    console.error('[Scan]', err);
   } finally {
     hideProgress();
     btn.disabled = false;
   }
 }
 
-// ─────────────────────────────────────────
-// RENDER
-// ─────────────────────────────────────────
+// =========================================
+// Render items
+// =========================================
 function render() {
   const el = document.getElementById('items');
   if (!items.length) {
@@ -608,13 +651,18 @@ function render() {
 }
 
 function renderSummary() {
-  const sum = c => items.filter(i => i.category === c).reduce((s, i) => s + i.subtotal, 0);
-  const f = sum('food'), d = sum('daily'), o = sum('other'), t = f + d + o;
+  const tf = settings.taxFood / 100, to = settings.taxOther / 100;
+  const sumPre = c => items.filter(i => i.category === c).reduce((s, i) => s + i.subtotal, 0);
+  const f = sumPre('food'), d = sumPre('daily'), o = sumPre('other');
+  const fInc = f * (1 + tf), dInc = d * (1 + to), oInc = o * (1 + to);
+  const tInc = fInc + dInc + oInc;
+  const tax  = f * tf + d * to + o * to;
   document.getElementById('summaryArea').innerHTML = `
-    <div class="summary-row"><span>🥦 食品</span><span class="summary-val">¥${f.toLocaleString()}</span></div>
-    <div class="summary-row"><span>🧴 日用品</span><span class="summary-val">¥${d.toLocaleString()}</span></div>
-    <div class="summary-row"><span>📦 その他</span><span class="summary-val">¥${o.toLocaleString()}</span></div>
-    <div class="summary-row"><span>合計</span><span class="summary-val">¥${t.toLocaleString()}</span></div>`;
+    <div class="summary-row"><span>🥦 食品（税込 ${settings.taxFood}%）</span><span class="summary-val">¥${Math.round(fInc).toLocaleString()}</span></div>
+    <div class="summary-row"><span>🧴 日用品（税込 ${settings.taxOther}%）</span><span class="summary-val">¥${Math.round(dInc).toLocaleString()}</span></div>
+    <div class="summary-row"><span>📦 その他（税込 ${settings.taxOther}%）</span><span class="summary-val">¥${Math.round(oInc).toLocaleString()}</span></div>
+    <div class="summary-row"><span>消費税合計</span><span class="summary-val">¥${Math.round(tax).toLocaleString()}</span></div>
+    <div class="summary-row"><span>合計（税込）</span><span class="summary-val">¥${Math.round(tInc).toLocaleString()}</span></div>`;
 }
 
 function updateItem(idx, key, val) {
@@ -632,160 +680,240 @@ function confirmData() {
   low > 0 ? toast(`⚠ 信頼度の低い項目が${low}件`, 'warn') : toast('✅ 内容に問題なし', 'success');
 }
 
-// ─────────────────────────────────────────
-// SAVE — btn引数で受け取りevent依存を排除
-// ─────────────────────────────────────────
+// =========================================
+// Save to IndexedDB
+// =========================================
 async function save(btn) {
-  if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   if (!items.length) { toast('保存する明細がありません', 'warn'); return; }
   btn.disabled = true;
   try {
-    // 1. 辞書学習
-    const learnEntries = items
-      .filter(i => i.originalName && i.originalName !== i.name)
-      .map(i => ({ raw: i.originalName, normalized: i.name, count: 1, user_id: currentUser.id }));
-    await dbLearn(learnEntries);
-
-    // 2. レシートをDBに先行保存してIDを取得
-    const receiptPayload = {
-      user_id: currentUser.id,
-      items: items.map(i => ({ ...i })),
+    await learnDict(items);
+    const thumb = currentFile ? await makeThumbnail(currentFile) : null;
+    const tf = settings.taxFood / 100, to = settings.taxOther / 100;
+    const taxedItems = items.map(i => ({
+      ...i,
+      taxRate: i.category === 'food' ? settings.taxFood : settings.taxOther,
+      taxedSubtotal: i.subtotal * (1 + (i.category === 'food' ? tf : to))
+    }));
+    await dbAdd('receipts', {
       store: document.getElementById('storeBadge').textContent.trim(),
       date: new Date().toISOString(),
-      image_path: null // 後でアップデート
-    };
-    const { data: inserted, error: insertError } = await supabase
-      .from('receipts').insert(receiptPayload).select().single();
-    if (insertError) throw new Error('保存失敗: ' + insertError.message);
-
-    // 3. サムネイルをStorage（OCRとは別処理・失敗しても保存は成功扱い）
-    if (currentFile) {
-      const thumbPath = await uploadThumbnail(currentFile, inserted.id);
-      if (thumbPath) {
-        await supabase.from('receipts')
-          .update({ image_path: thumbPath })
-          .eq('id', inserted.id);
-      }
-    }
-
+      items: taxedItems,
+      thumb,
+      taxSnapshot: { food: settings.taxFood, other: settings.taxOther },
+      createdAt: Date.now()
+    });
     await loadDict();
-    toast('✅ クラウドに保存しました', 'success');
+    toast('✅ 保存しました', 'success');
+    // リセット
+    items = []; currentFile = null;
+    document.getElementById('file').value = '';
+    document.getElementById('fileName').textContent = '';
+    document.getElementById('scanBtn').disabled = true;
+    document.getElementById('itemsCard').style.display = 'none';
+    await cleanOldData();
   } catch (err) {
     toast('❌ ' + err.message, 'error');
-    console.error('[Save]', err);
   } finally {
     btn.disabled = false;
   }
 }
 
-// ─────────────────────────────────────────
-// HISTORY
-// ─────────────────────────────────────────
+async function cleanOldData() {
+  const all = await dbGetAll('receipts');
+  const cutoff = Date.now() - settings.retentionDays * 86400000;
+  for (const r of all) {
+    if (r.createdAt < cutoff) await dbDelete('receipts', r.id);
+  }
+}
+
+// =========================================
+// History
+// =========================================
+let currentFilter = 'all';
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  loadHistory();
+}
+
+function getPeriodRange(period) {
+  const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (period === 'today')   return [today, now];
+  if (period === 'week')    { const d = new Date(today); d.setDate(d.getDate()-6); return [d, now]; }
+  if (period === 'month')   { const d = new Date(today); d.setDate(1); return [d, now]; }
+  if (period === '3months') { const d = new Date(today); d.setMonth(d.getMonth()-3); return [d, now]; }
+  if (period === 'year')    return [new Date(now.getFullYear(), 0, 1), now];
+  return [null, null];
+}
+
 async function loadHistory() {
   const el = document.getElementById('historyList');
   el.innerHTML = '<div class="empty"><span>⏳</span>読み込み中...</div>';
   try {
-    const { data, error } = await supabase
-      .from('receipts')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('date', { ascending: false })
-      .limit(50);
-    if (error) throw error;
+    let data = await dbGetAll('receipts');
+    // 期間フィルター
+    const period = document.getElementById('periodSelect').value;
+    const [start, end] = getPeriodRange(period);
+    if (start) data = data.filter(r => { const d = new Date(r.date); return d >= start && d <= end; });
+    // カテゴリフィルター
+    if (currentFilter !== 'all') {
+      data = data.filter(r => r.items.some(i => i.category === currentFilter));
+    }
+    data.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // サマリー計算
+    let totalInc = 0, totalTax = 0;
+    data.forEach(r => {
+      r.items.forEach(i => {
+        if (currentFilter === 'all' || i.category === currentFilter) {
+          totalInc += i.taxedSubtotal || 0;
+          const rate = (i.taxRate || 10) / 100;
+          totalTax += (i.taxedSubtotal || 0) / (1 + rate) * rate;
+        }
+      });
+    });
+    const sumEl = document.getElementById('historySummary');
+    if (data.length) {
+      sumEl.style.display = 'block';
+      document.getElementById('histTotalInc').textContent = '¥' + Math.round(totalInc).toLocaleString();
+      document.getElementById('histTotalTax').textContent = '¥' + Math.round(totalTax).toLocaleString();
+    } else {
+      sumEl.style.display = 'none';
+    }
+
     if (!data.length) {
       el.innerHTML = '<div class="empty"><span>📭</span>保存済みレシートなし</div>';
       return;
     }
+
     el.innerHTML = data.map(r => {
-      const total = (r.items || []).reduce((s, i) => s + (i.subtotal || 0), 0);
+      const dispItems = currentFilter === 'all' ? r.items : r.items.filter(i => i.category === currentFilter);
+      const total = dispItems.reduce((s, i) => s + (i.taxedSubtotal || 0), 0);
       const date  = new Date(r.date).toLocaleDateString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-      const thumbUrl = getThumbnailUrl(r.image_path);
-      const thumb = thumbUrl
-        ? `<img class="history-thumb" src="${thumbUrl}" alt="レシート" loading="lazy">`
+      const thumb = r.thumb
+        ? `<img class="history-thumb" src="${r.thumb}" onclick='openModal(${r.id})' alt="レシート">`
         : `<div class="history-thumb-placeholder">🧾</div>`;
-      const cats = (r.items || []).reduce((acc, i) => {
-        acc[i.category] = (acc[i.category] || 0) + i.subtotal; return acc;
+      const cats = dispItems.reduce((acc, i) => {
+        acc[i.category] = (acc[i.category] || 0) + (i.taxedSubtotal || 0); return acc;
       }, {});
       const catStr = [
-        cats.food  ? `食品 ¥${cats.food.toLocaleString()}`  : '',
-        cats.daily ? `日用 ¥${cats.daily.toLocaleString()}` : '',
-        cats.other ? `他   ¥${cats.other.toLocaleString()}` : '',
+        cats.food  ? `食品 ¥${Math.round(cats.food).toLocaleString()}`  : '',
+        cats.daily ? `日用 ¥${Math.round(cats.daily).toLocaleString()}` : '',
+        cats.other ? `他   ¥${Math.round(cats.other).toLocaleString()}` : '',
       ].filter(Boolean).join(' / ');
       return `
-        <div class="history-item" onclick='openModal(${JSON.stringify(r)})'>
+        <div class="history-item">
           ${thumb}
-          <div class="history-info">
+          <div class="history-info" onclick="openModal(${r.id})">
             <div class="history-store">${escHtml(r.store || '汎用')}</div>
             <div class="history-date">${date}</div>
-            <div class="history-total">¥${total.toLocaleString()}</div>
+            <div class="history-total">¥${Math.round(total).toLocaleString()}</div>
             <div class="history-cats">${escHtml(catStr)}</div>
           </div>
+          <button class="history-del" onclick="deleteReceipt(${r.id})" title="削除">🗑</button>
         </div>`;
     }).join('');
   } catch (err) {
     el.innerHTML = '<div class="empty"><span>❌</span>読み込み失敗</div>';
     toast('履歴の取得に失敗しました', 'error');
-    console.error('[loadHistory]', err);
   }
 }
 
-// ─────────────────────────────────────────
-// MODAL
-// ─────────────────────────────────────────
-function openModal(r) {
+async function deleteReceipt(id) {
+  if (!confirm('このレシートを削除しますか？')) return;
+  await dbDelete('receipts', id);
+  toast('削除しました', 'warn');
+  loadHistory();
+}
+
+// =========================================
+// Modal
+// =========================================
+async function openModal(id) {
+  const all = await dbGetAll('receipts');
+  const r = all.find(x => x.id === id);
+  if (!r) return;
   document.getElementById('modalTitle').textContent = r.store || '汎用';
   const imgEl = document.getElementById('modalImg');
-  const thumbUrl = getThumbnailUrl(r.image_path);
-  if (thumbUrl) {
-    imgEl.src = thumbUrl;
-    imgEl.classList.add('show');
-  } else {
-    imgEl.classList.remove('show');
-  }
-  // 明細
+  if (r.thumb) { imgEl.src = r.thumb; imgEl.classList.add('show'); }
+  else          { imgEl.classList.remove('show'); }
+
   const its = r.items || [];
   document.getElementById('modalItems').innerHTML = its.map(i => `
     <div class="item-row" style="pointer-events:none">
       <div class="item-name-wrap">
         <div class="item-name" style="padding:2px 4px">${escHtml(i.name)}</div>
-        <div class="item-meta">数量: ${i.qty}</div>
+        <div class="item-meta">数量: ${i.qty}　税率: ${i.taxRate || 10}%</div>
       </div>
-      <div class="item-price">¥${(i.unitPrice||0).toLocaleString()}</div>
+      <div class="item-price">¥${Math.round(i.taxedSubtotal || 0).toLocaleString()}</div>
       <span class="category-btn cat-${i.category}">
         ${i.category==='food'?'食品':i.category==='daily'?'日用':'他'}
       </span>
     </div>`).join('');
-  // サマリー
-  const sum = c => its.filter(i=>i.category===c).reduce((s,i)=>s+i.subtotal,0);
+
+  const sum = c => its.filter(i=>i.category===c).reduce((s,i)=>s+(i.taxedSubtotal||0),0);
   const f=sum('food'),d=sum('daily'),o=sum('other'),t=f+d+o;
+  const tf=(r.taxSnapshot?.food||10)/100, to=(r.taxSnapshot?.other||10)/100;
+  const tax = its.reduce((s,i)=>{
+    const rate=(i.taxRate||10)/100;
+    return s+(i.taxedSubtotal||0)/(1+rate)*rate;
+  },0);
   document.getElementById('modalSummary').innerHTML = `
-    <div class="summary-row"><span>🥦 食品</span><span class="summary-val">¥${f.toLocaleString()}</span></div>
-    <div class="summary-row"><span>🧴 日用品</span><span class="summary-val">¥${d.toLocaleString()}</span></div>
-    <div class="summary-row"><span>📦 その他</span><span class="summary-val">¥${o.toLocaleString()}</span></div>
-    <div class="summary-row"><span>合計</span><span class="summary-val">¥${t.toLocaleString()}</span></div>`;
+    <div class="summary-row"><span>🥦 食品</span><span class="summary-val">¥${Math.round(f).toLocaleString()}</span></div>
+    <div class="summary-row"><span>🧴 日用品</span><span class="summary-val">¥${Math.round(d).toLocaleString()}</span></div>
+    <div class="summary-row"><span>📦 その他</span><span class="summary-val">¥${Math.round(o).toLocaleString()}</span></div>
+    <div class="summary-row"><span>消費税</span><span class="summary-val">¥${Math.round(tax).toLocaleString()}</span></div>
+    <div class="summary-row"><span>合計（税込）</span><span class="summary-val">¥${Math.round(t).toLocaleString()}</span></div>`;
   document.getElementById('modalOverlay').classList.add('show');
 }
-function closeModal(e) {
-  if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
-}
-function closeModalDirect() {
-  document.getElementById('modalOverlay').classList.remove('show');
+function closeModal(e) { if (e.target === document.getElementById('modalOverlay')) closeModalDirect(); }
+function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('show'); }
+
+// =========================================
+// Data export / clear
+// =========================================
+async function exportData() {
+  const data = await dbGetAll('receipts');
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'receipts_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(url);
 }
 
-// ─────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────
+async function clearAllData() {
+  const input = prompt('全データを削除します。確認のため「DELETE」と入力してください。');
+  if (input !== 'DELETE') { toast('キャンセルしました', 'warn'); return; }
+  await dbClear('receipts');
+  await dbClear('dictionary');
+  toast('全データを削除しました', 'warn');
+  loadHistory();
+}
+
+// =========================================
+// Init
+// =========================================
 (async () => {
-  try {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) { currentUser = data.session.user; onLoggedIn(); }
-  } catch (err) { console.error('[Init]', err); }
-
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN'  && session) { currentUser = session.user; onLoggedIn(); }
-    if (event === 'SIGNED_OUT')            { currentUser = null; }
-  });
+  await openDB();
+  loadSettings();
+  await loadDict();
+  await cleanOldData();
 })();
 </script>
+
+<!-- Tesseract.js をローカル読み込み（Tracking Prevention対策） -->
+<script>
+// Tesseractが読み込まれていない場合のフォールバック表示
+window.addEventListener('load', () => {
+  if (typeof Tesseract === 'undefined') {
+    document.getElementById('scanBtn').title = 'Tesseract.jsが読み込まれていません。tesseract.min.jsをダウンロードしてください。';
+    toast('⚠ tesseract.min.jsが必要です（READMEを確認）', 'warn');
+  }
+});
+</script>
+<script src="tesseract.min.js"></script>
 </body>
 </html>
