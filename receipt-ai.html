@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt AI</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  :root {
+    --bg:#f0f2f5;--card:#fff;--primary:#1a56db;--primary-light:#e8f0fe;
+    --danger:#e53e3e;--warn:#d97706;--success:#16a34a;
+    --text:#1a202c;--muted:#6b7280;--border:#e5e7eb;--radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  .app{max-width:520px;margin:0 auto;padding:16px}
+
+  /* Header */
+  .header{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:16px 0 12px}
+  .header-icon{width:40px;height:40px;background:var(--primary);border-radius:10px;display:grid;place-items:center;color:#fff;font-size:20px;flex-shrink:0}
+  .header h1{font-size:20px;font-weight:700}
+  .header p{font-size:12px;color:var(--muted)}
+  .user-badge{margin-left:auto;font-size:12px;color:var(--muted);text-align:right;cursor:pointer;flex-shrink:0}
+  .user-badge span{display:block;font-weight:700;color:var(--text)}
+
+  /* Tab Nav */
+  .tab-nav{display:flex;gap:4px;background:#e5e7eb;border-radius:10px;padding:4px;margin-bottom:16px}
+  .tab-btn{flex:1;padding:8px;border:none;background:transparent;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .15s}
+  .tab-btn.active{background:#fff;color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+  /* Cards */
+  .card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;border:1px solid var(--border)}
+  .card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+  /* Auth */
+  #authCard label{font-size:13px;font-weight:600;display:block;margin-bottom:4px;margin-top:10px}
+  #authCard input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;outline:none;transition:border .15s}
+  #authCard input:focus{border-color:var(--primary)}
+  .auth-toggle{font-size:13px;color:var(--primary);cursor:pointer;text-align:center;margin-top:10px}
+
+  /* Upload */
+  .upload-area{border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+  .upload-area:hover{border-color:var(--primary);background:var(--primary-light)}
+  .upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .upload-icon{font-size:32px;margin-bottom:8px}
+  .upload-label{font-size:14px;font-weight:600;color:var(--primary)}
+  .upload-sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .file-name{margin-top:8px;font-size:13px;font-weight:600}
+
+  /* Progress */
+  .progress-wrap{display:none;margin-top:12px}
+  .progress-wrap.show{display:block}
+  .progress-label{font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
+  .progress-bar{height:6px;background:var(--border);border-radius:999px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--primary);border-radius:999px;transition:width .3s;width:0%}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;font-size:14px;font-weight:600;padding:10px 16px;border-radius:8px;cursor:pointer;border:none;transition:all .15s;width:100%;margin-top:10px}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover{background:#1648c0}
+  .btn-primary:disabled{background:#9ca3af;cursor:not-allowed}
+  .btn-success{background:var(--success);color:#fff}
+  .btn-success:hover{background:#15803d}
+  .btn-success:disabled{background:#9ca3af;cursor:not-allowed}
+  .btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary)}
+  .btn-outline:hover{background:var(--primary-light)}
+
+  /* Store badge */
+  .store-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:#fff3cd;color:#92400e}
+
+  /* Items */
+  .item-row{display:grid;grid-template-columns:1fr 80px 36px;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);animation:fadeIn .2s ease}
+  .item-row:last-child{border-bottom:none}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  .item-name-wrap{min-width:0}
+  .item-name{width:100%;border:none;background:transparent;font-family:inherit;font-size:14px;color:var(--text);padding:2px 4px;border-radius:4px;outline:none;transition:background .15s}
+  .item-name:focus{background:var(--primary-light)}
+  .item-meta{font-size:11px;color:var(--muted);padding:0 4px}
+  .item-price{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;border:none;background:transparent;text-align:right;color:var(--text);padding:2px 4px;border-radius:4px;outline:none;transition:background .15s;width:100%}
+  .item-price:focus{background:var(--primary-light)}
+  .category-btn{font-size:11px;font-weight:700;padding:3px 6px;border-radius:6px;border:none;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .cat-food{background:#dcfce7;color:#15803d}
+  .cat-daily{background:#fef9c3;color:#854d0e}
+  .cat-other{background:#e0e7ff;color:#3730a3}
+  .warn-icon{color:var(--warn);font-size:12px}
+
+  /* Summary */
+  .summary-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;border-bottom:1px solid var(--border)}
+  .summary-row:last-child{border:none;font-weight:700;font-size:16px}
+  .summary-val{font-family:'JetBrains Mono',monospace;font-weight:600}
+
+  /* History */
+  .history-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;border-radius:8px}
+  .history-item:last-child{border-bottom:none}
+  .history-item:hover{background:var(--bg)}
+  .history-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--bg);border:1px solid var(--border);flex-shrink:0}
+  .history-thumb-placeholder{width:56px;height:56px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;font-size:22px;flex-shrink:0}
+  .history-info{flex:1;min-width:0}
+  .history-store{font-size:13px;font-weight:700;margin-bottom:2px}
+  .history-date{font-size:11px;color:var(--muted);margin-bottom:4px}
+  .history-total{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--primary)}
+  .history-cats{font-size:11px;color:var(--muted);margin-top:2px}
+
+  /* Detail Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center}
+  .modal-overlay.show{display:flex}
+  .modal{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;padding:20px}
+  .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .modal-title{font-size:16px;font-weight:700}
+  .modal-close{background:var(--bg);border:none;border-radius:999px;width:32px;height:32px;cursor:pointer;font-size:16px}
+  .modal-img{width:100%;border-radius:10px;margin-bottom:16px;display:none}
+  .modal-img.show{display:block}
+
+  /* Toast */
+  .toast-wrap{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .toast{padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.2);animation:toastIn .25s ease,toastOut .3s ease 2.5s forwards;pointer-events:auto;white-space:nowrap}
+  .toast-success{background:var(--success)}
+  .toast-error{background:var(--danger)}
+  .toast-warn{background:var(--warn)}
+  @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes toastOut{to{opacity:0;transform:translateY(10px)}}
+
+  .empty{text-align:center;padding:28px 0;color:var(--muted);font-size:14px}
+  .empty span{font-size:32px;display:block;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🧾</div>
+    <div><h1>Receipt AI</h1><p>レシートをスキャンして自動仕訳</p></div>
+    <div class="user-badge" id="userBadge" style="display:none" onclick="signOut()">
+      <span id="userEmail"></span>ログアウト
+    </div>
+  </div>
+
+  <!-- Auth -->
+  <div class="card" id="authCard">
+    <div class="card-title">🔐 ログイン / 新規登録</div>
+    <label>メールアドレス</label>
+    <input type="email" id="emailInput" placeholder="you@example.com">
+    <label>パスワード（8文字以上）</label>
+    <input type="password" id="passwordInput" placeholder="••••••••">
+    <button class="btn btn-primary" id="authBtn" onclick="signIn()">ログイン</button>
+    <div class="auth-toggle" onclick="toggleAuthMode()">アカウントをお持ちでない方 → 新規登録</div>
+  </div>
+
+  <!-- Main App -->
+  <div id="mainApp" style="display:none">
+
+    <!-- Tab Nav -->
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tabScan" onclick="switchTab('scan')">📷 スキャン</button>
+      <button class="tab-btn" id="tabHistory" onclick="switchTab('history')">📋 履歴</button>
+    </div>
+
+    <!-- Scan Tab -->
+    <div id="scanTab">
+      <div class="card">
+        <div class="card-title">📷 スキャン</div>
+        <div class="upload-area">
+          <input type="file" id="file" accept="image/*" onchange="onFileSelect(this)">
+          <div class="upload-icon">📄</div>
+          <div class="upload-label">画像を選択 / ドロップ</div>
+          <div class="upload-sub">JPEG・PNG・HEIC対応</div>
+          <div class="file-name" id="fileName"></div>
+        </div>
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-label">
+            <span id="progressLabel">準備中...</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+        <button class="btn btn-primary" id="scanBtn" onclick="scan(this)" disabled>🔍 スキャン開始</button>
+      </div>
+
+      <div class="card" id="itemsCard" style="display:none">
+        <div class="card-title">📋 明細 <span id="storeBadge"></span></div>
+        <div id="items"></div>
+        <div id="summaryArea" style="margin-top:12px"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-outline" style="width:50%" onclick="confirmData()">確認</button>
+          <button class="btn btn-success" style="width:50%" id="saveBtn" onclick="save(this)">💾 保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Tab -->
+    <div id="historyTab" style="display:none">
+      <div class="card">
+        <div class="card-title">📋 保存済みレシート</div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <img class="modal-img" id="modalImg" alt="レシート画像">
+    <div id="modalItems"></div>
+    <div id="modalSummary" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ★ ここだけ書き換える
+const SUPABASE_URL  = 'https://ddmiyismvlzlkgmuyayp.supabase.co'; // ← Project URL
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbWl5aXNtdmx6bGtnbXV5YXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODQ2MzksImV4cCI6MjA5MDg2MDYzOX0.hnrBZ4jxX4WFCy0Xk_a0pmTYhkMVVFdH-7cwehtZ1T0';                   // ← anon public key
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+let items = [], dictionary = [], currentUser = null, isSignUp = false;
+let currentFile = null; // スキャン対象ファイルを保持
+
+// ─────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ─────────────────────────────────────────
+// TAB
+// ─────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('scanTab').style.display    = tab === 'scan'    ? 'block' : 'none';
+  document.getElementById('historyTab').style.display = tab === 'history' ? 'block' : 'none';
+  document.getElementById('tabScan').classList.toggle('active',    tab === 'scan');
+  document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
+  if (tab === 'history') loadHistory();
+}
+
+// ─────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────
+function toggleAuthMode() {
+  isSignUp = !isSignUp;
+  document.getElementById('authBtn').textContent = isSignUp ? '新規登録' : 'ログイン';
+  document.querySelector('.auth-toggle').textContent = isSignUp
+    ? '既にアカウントをお持ちの方 → ログイン'
+    : 'アカウントをお持ちでない方 → 新規登録';
+}
+
+async function signIn() {
+  const email    = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+
+  // ── フロントバリデーション ──
+  if (!email || !password) { toast('メールとパスワードを入力してください', 'warn'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('正しいメールアドレスを入力してください', 'warn'); return; }
+  if (password.length < 8) { toast('パスワードは8文字以上にしてください', 'warn'); return; }
+
+  try {
+    const { data, error } = isSignUp
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (isSignUp && !data.session) { toast('確認メールを送信しました', 'warn'); return; }
+    currentUser = data.user || data.session?.user;
+    onLoggedIn();
+  } catch (err) {
+    toast('❌ ' + (err.message || '認証失敗'), 'error');
+  }
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  currentUser = null; items = []; dictionary = [];
+  document.getElementById('authCard').style.display = 'block';
+  document.getElementById('mainApp').style.display  = 'none';
+  document.getElementById('userBadge').style.display = 'none';
+  toast('ログアウトしました', 'warn');
+}
+
+function onLoggedIn() {
+  document.getElementById('authCard').style.display  = 'none';
+  document.getElementById('mainApp').style.display   = 'block';
+  document.getElementById('userBadge').style.display = 'block';
+  document.getElementById('userEmail').textContent   = currentUser.email;
+  loadDict();
+}
+
+// ─────────────────────────────────────────
+// SUPABASE DB
+// ─────────────────────────────────────────
+async function loadDict() {
+  try {
+    const { data, error } = await supabase
+      .from('dictionary').select('*').eq('user_id', currentUser.id);
+    if (error) throw error;
+    dictionary = data || [];
+  } catch (err) { console.warn('[loadDict]', err.message); }
+}
+
+async function dbSaveReceipt(payload) {
+  const { error } = await supabase.from('receipts').insert(payload);
+  if (error) throw new Error('保存失敗: ' + error.message);
+}
+
+async function dbLearn(entries) {
+  if (!entries.length) return;
+  const { error } = await supabase.from('dictionary')
+    .upsert(entries, { onConflict: 'raw,user_id' });
+  if (error) console.warn('[learn]', error.message);
+}
+
+// ─────────────────────────────────────────
+// IMAGE: OCR用（高品質）とサムネイル用（軽量）を分離
+// ─────────────────────────────────────────
+function preprocessForOCR(file) {
+  // 1200px・Otsu二値化 → OCR精度優先
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('ファイル読み込み失敗'));
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('画像解析失敗'));
+      img.onload = () => {
+        try {
+          const W = 1200, scale = W / img.width;
+          const canvas = document.createElement('canvas');
+          canvas.width = W; canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.filter = 'contrast(1.4) brightness(1.1)';
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Otsu binarization
+          const id = ctx.getImageData(0, 0, canvas.width, canvas.height), d = id.data;
+          const hist = new Array(256).fill(0);
+          for (let i = 0; i < d.length; i += 4)
+            hist[Math.round(0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2])]++;
+          const total = canvas.width * canvas.height;
+          let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+          let sumB = 0, wB = 0, maxVar = 0, thresh = 128;
+          for (let t = 0; t < 256; t++) {
+            wB += hist[t]; if (!wB || wB === total) continue;
+            const wF = total - wB; sumB += t * hist[t];
+            const v = wB * wF * ((sumB/wB) - ((sum-sumB)/wF)) ** 2;
+            if (v > maxVar) { maxVar = v; thresh = t; }
+          }
+          for (let i = 0; i < d.length; i += 4) {
+            const g = Math.round(0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]);
+            d[i] = d[i+1] = d[i+2] = g > thresh ? 255 : 0;
+          }
+          ctx.putImageData(id, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        } catch (err) { reject(err); }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function makeThumbnail(file) {
+  // 400px・カラー・JPEG60% → 履歴表示専用（約30〜80KB）
+  // OCRとは完全に独立。画質を落としてもOCR精度には影響しない。
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve(null); // サムネイル失敗は致命的でないのでnullで継続
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = () => resolve(null);
+      img.onload = () => {
+        try {
+          const W = 400, scale = W / img.width;
+          const canvas = document.createElement('canvas');
+          canvas.width = W; canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // カラーのまま保存
+          canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.6);
+        } catch { resolve(null); }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadThumbnail(file, receiptId) {
+  // Supabase Storageにサムネイルをアップロード
+  try {
+    const blob = await makeThumbnail(file);
+    if (!blob) return null;
+    const path = `${currentUser.id}/${receiptId}.jpg`;
+    const { error } = await supabase.storage.from('receipt-thumbs').upload(path, blob, {
+      contentType: 'image/jpeg', upsert: true
+    });
+    if (error) { console.warn('[uploadThumbnail]', error.message); return null; }
+    return path;
+  } catch (err) { console.warn('[uploadThumbnail]', err.message); return null; }
+}
+
+function getThumbnailUrl(path) {
+  if (!path) return null;
+  const { data } = supabase.storage.from('receipt-thumbs').getPublicUrl(path);
+  return data?.publicUrl || null;
+}
+
+// ─────────────────────────────────────────
+// STORE / CATEGORY
+// ─────────────────────────────────────────
+function detectStore(t) {
+  if (/セブン|7[-‐]ELEVEN/i.test(t))         return 'seven';
+  if (/イオン|AEON/i.test(t))                return 'aeon';
+  if (/ファミリーマート|FamilyMart/i.test(t)) return 'familymart';
+  if (/ローソン|LAWSON/i.test(t))             return 'lawson';
+  return 'generic';
+}
+const STORE_LABELS = {
+  seven:'🏪 セブン-イレブン', aeon:'🏬 イオン',
+  familymart:'🏪 ファミリーマート', lawson:'🏪 ローソン', generic:'🧾 汎用'
+};
+function detectCategory(l) {
+  if (/[※＊]\s*軽|軽減|食品|飲料|弁当|おにぎり|サンド|パン|菓子|ジュース|水|茶/.test(l)) return 'food';
+  if (/[※＊]/.test(l)) return 'food';
+  if (/日用品|洗剤|シャンプー|電池|文具|雑貨/.test(l)) return 'daily';
+  return 'other';
+}
+
+// ─────────────────────────────────────────
+// PARSERS
+// ─────────────────────────────────────────
+function buildItem(raw, name, unitPrice, qty = 1, confidence = 0.8) {
+  return { originalName: raw, name, unitPrice, qty, subtotal: unitPrice * qty, category: detectCategory(raw), confidence };
+}
+function parseSeven(lines) {
+  return lines.map(l => {
+    const m = l.match(/^(.+?)\s+[¥￥]([\d,]+)/);
+    if (!m) return null;
+    const p = parseInt(m[2].replace(/,/g,''), 10);
+    return (p > 0 && p <= 100000) ? buildItem(l, m[1].trim(), p) : null;
+  }).filter(Boolean);
+}
+function parseAeon(lines) {
+  return lines.map(l => {
+    const m = l.match(/^(.+?)\s{2,}([\d,]+)\s*$/);
+    if (!m) return null;
+    const p = parseInt(m[2].replace(/,/g,''), 10);
+    return (p > 0 && p <= 100000) ? buildItem(l, m[1].trim(), p) : null;
+  }).filter(Boolean);
+}
+function parseGeneric(lines) {
+  return lines.map(l => {
+    if (/^(合計|小計|税|おつり|預り|消費税|内税|外税|ありがとう|Tel|TEL|〒|領収)/i.test(l.trim())) return null;
+    let m = l.match(/^(.+?)\s+(\d+)\s*[×xX]\s*([\d,]+)/);
+    if (m) {
+      const qty = parseInt(m[2],10), unit = parseInt(m[3].replace(/,/g,''),10);
+      if (!isNaN(qty) && !isNaN(unit)) return buildItem(l, m[1].trim(), unit, qty);
+    }
+    m = l.match(/^(.+?)\s+[¥￥]([\d,]+)/);
+    if (m) { const p = parseInt(m[2].replace(/,/g,''),10); if (p>0&&p<=100000) return buildItem(l,m[1].trim(),p); }
+    m = l.match(/^(.+?)\s+([\d,]+)\s*円/);
+    if (m) { const p = parseInt(m[2].replace(/,/g,''),10); if (p>0&&p<=100000) return buildItem(l,m[1].trim(),p); }
+    m = l.match(/^(.{2,}?)\s+([\d,]{2,})\s*$/);
+    if (m) { const p = parseInt(m[2].replace(/,/g,''),10); if (p>0&&p<=100000) return buildItem(l,m[1].trim(),p,1,0.55); }
+    return null;
+  }).filter(Boolean);
+}
+function parseByStore(store, text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+  const parsers = { seven: parseSeven, aeon: parseAeon };
+  const result = (parsers[store] || parseGeneric)(lines);
+  return result.length > 0 ? result : parseGeneric(lines);
+}
+
+// ─────────────────────────────────────────
+// LEVENSHTEIN — 先頭文字フィルタ付き
+// ─────────────────────────────────────────
+function levenshtein(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i];
+    for (let j = 1; j <= b.length; j++)
+      curr[j] = Math.min(curr[j-1]+1, prev[j]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev = curr;
+  }
+  return prev[b.length];
+}
+function similarity(a, b) {
+  if (a === b) return 1;
+  const max = Math.max(a.length, b.length);
+  return max ? 1 - levenshtein(a, b) / max : 1;
+}
+function normalizeName(name) {
+  // ① 先頭文字が一致するものだけに絞り込み（大規模辞書でも高速）
+  const candidates = dictionary.filter(d => d.raw && d.raw[0] === name[0]);
+  let best = name, bestScore = 0;
+  for (const d of candidates) {
+    const s = similarity(name, d.raw);
+    if (s > bestScore && s > 0.75) { bestScore = s; best = d.normalized; }
+  }
+  return best;
+}
+
+// ─────────────────────────────────────────
+// XSS対策 — シングルクォートも含む完全版
+// ─────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,  '&amp;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#x27;')  // ← 追加
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;');
+}
+
+// ─────────────────────────────────────────
+// UI HELPERS
+// ─────────────────────────────────────────
+function onFileSelect(input) {
+  const f = input.files[0]; if (!f) return;
+  currentFile = f;
+  document.getElementById('fileName').textContent = '📎 ' + f.name;
+  document.getElementById('scanBtn').disabled = false;
+}
+function setProgress(label, pct) {
+  document.getElementById('progressWrap').classList.add('show');
+  document.getElementById('progressLabel').textContent = label;
+  document.getElementById('progressPct').textContent   = pct + '%';
+  document.getElementById('progressFill').style.width  = pct + '%';
+}
+function hideProgress() { document.getElementById('progressWrap').classList.remove('show'); }
+
+// ─────────────────────────────────────────
+// SCAN — btn引数で受け取りevent依存を排除
+// ─────────────────────────────────────────
+async function scan(btn) {
+  const file = document.getElementById('file').files[0];
+  if (!file) { toast('ファイルを選択してください', 'warn'); return; }
+  btn.disabled = true;
+  try {
+    setProgress('画像を前処理中...', 15);
+    const img = await preprocessForOCR(file)
+      .catch(e => { throw new Error('前処理失敗: ' + e.message); });
+
+    setProgress('OCR実行中...', 35);
+    const ocr = await Tesseract.recognize(img, 'jpn+eng', {
+      logger: m => { if (m.status === 'recognizing text') setProgress('テキスト認識中...', Math.round(35 + m.progress * 45)); }
+    }).catch(() => { throw new Error('OCR失敗。鮮明な画像を使用してください'); });
+
+    const text = ocr?.data?.text || '';
+    if (text.trim().length < 5) throw new Error('テキストを認識できませんでした');
+
+    setProgress('明細を解析中...', 85);
+    const store = detectStore(text);
+    const parsed = parseByStore(store, text);
+    if (!parsed.length) toast('明細が検出できませんでした', 'warn');
+
+    setProgress('辞書照合中...', 95);
+    items = parsed.map(i => ({ ...i, name: normalizeName(i.name) }));
+
+    document.getElementById('storeBadge').innerHTML =
+      `<span class="store-badge">${STORE_LABELS[store] || '🧾 汎用'}</span>`;
+    setProgress('完了', 100);
+    render();
+    document.getElementById('itemsCard').style.display = 'block';
+    toast(`${items.length}件の明細を検出しました`, 'success');
+  } catch (err) {
+    toast('❌ ' + err.message, 'error');
+    console.error('[Scan]', err);
+  } finally {
+    hideProgress();
+    btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────
+function render() {
+  const el = document.getElementById('items');
+  if (!items.length) {
+    el.innerHTML = '<div class="empty"><span>📭</span>明細なし</div>';
+    document.getElementById('summaryArea').innerHTML = '';
+    return;
+  }
+  el.innerHTML = items.map((item, idx) => `
+    <div class="item-row">
+      <div class="item-name-wrap">
+        <input class="item-name" value="${escHtml(item.name)}" onchange="updateItem(${idx},'name',this.value)">
+        <div class="item-meta">数量: ${item.qty} ${item.confidence < 0.6 ? '<span class="warn-icon">⚠</span>' : ''}</div>
+      </div>
+      <input class="item-price" type="number" min="0" value="${item.unitPrice}" onchange="updateItem(${idx},'unitPrice',+this.value)">
+      <button class="category-btn cat-${item.category}" onclick="toggleCategory(${idx})">
+        ${item.category==='food'?'食品':item.category==='daily'?'日用':'他'}
+      </button>
+    </div>`).join('');
+  renderSummary();
+}
+
+function renderSummary() {
+  const sum = c => items.filter(i => i.category === c).reduce((s, i) => s + i.subtotal, 0);
+  const f = sum('food'), d = sum('daily'), o = sum('other'), t = f + d + o;
+  document.getElementById('summaryArea').innerHTML = `
+    <div class="summary-row"><span>🥦 食品</span><span class="summary-val">¥${f.toLocaleString()}</span></div>
+    <div class="summary-row"><span>🧴 日用品</span><span class="summary-val">¥${d.toLocaleString()}</span></div>
+    <div class="summary-row"><span>📦 その他</span><span class="summary-val">¥${o.toLocaleString()}</span></div>
+    <div class="summary-row"><span>合計</span><span class="summary-val">¥${t.toLocaleString()}</span></div>`;
+}
+
+function updateItem(idx, key, val) {
+  items[idx][key] = val;
+  if (key === 'unitPrice') items[idx].subtotal = items[idx].unitPrice * items[idx].qty;
+  renderSummary();
+}
+function toggleCategory(idx) {
+  const cats = ['food','daily','other'];
+  items[idx].category = cats[(cats.indexOf(items[idx].category) + 1) % cats.length];
+  render();
+}
+function confirmData() {
+  const low = items.filter(i => i.confidence < 0.6).length;
+  low > 0 ? toast(`⚠ 信頼度の低い項目が${low}件`, 'warn') : toast('✅ 内容に問題なし', 'success');
+}
+
+// ─────────────────────────────────────────
+// SAVE — btn引数で受け取りevent依存を排除
+// ─────────────────────────────────────────
+async function save(btn) {
+  if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
+  if (!items.length) { toast('保存する明細がありません', 'warn'); return; }
+  btn.disabled = true;
+  try {
+    // 1. 辞書学習
+    const learnEntries = items
+      .filter(i => i.originalName && i.originalName !== i.name)
+      .map(i => ({ raw: i.originalName, normalized: i.name, count: 1, user_id: currentUser.id }));
+    await dbLearn(learnEntries);
+
+    // 2. レシートをDBに先行保存してIDを取得
+    const receiptPayload = {
+      user_id: currentUser.id,
+      items: items.map(i => ({ ...i })),
+      store: document.getElementById('storeBadge').textContent.trim(),
+      date: new Date().toISOString(),
+      image_path: null // 後でアップデート
+    };
+    const { data: inserted, error: insertError } = await supabase
+      .from('receipts').insert(receiptPayload).select().single();
+    if (insertError) throw new Error('保存失敗: ' + insertError.message);
+
+    // 3. サムネイルをStorage（OCRとは別処理・失敗しても保存は成功扱い）
+    if (currentFile) {
+      const thumbPath = await uploadThumbnail(currentFile, inserted.id);
+      if (thumbPath) {
+        await supabase.from('receipts')
+          .update({ image_path: thumbPath })
+          .eq('id', inserted.id);
+      }
+    }
+
+    await loadDict();
+    toast('✅ クラウドに保存しました', 'success');
+  } catch (err) {
+    toast('❌ ' + err.message, 'error');
+    console.error('[Save]', err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────
+// HISTORY
+// ─────────────────────────────────────────
+async function loadHistory() {
+  const el = document.getElementById('historyList');
+  el.innerHTML = '<div class="empty"><span>⏳</span>読み込み中...</div>';
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('date', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    if (!data.length) {
+      el.innerHTML = '<div class="empty"><span>📭</span>保存済みレシートなし</div>';
+      return;
+    }
+    el.innerHTML = data.map(r => {
+      const total = (r.items || []).reduce((s, i) => s + (i.subtotal || 0), 0);
+      const date  = new Date(r.date).toLocaleDateString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      const thumbUrl = getThumbnailUrl(r.image_path);
+      const thumb = thumbUrl
+        ? `<img class="history-thumb" src="${thumbUrl}" alt="レシート" loading="lazy">`
+        : `<div class="history-thumb-placeholder">🧾</div>`;
+      const cats = (r.items || []).reduce((acc, i) => {
+        acc[i.category] = (acc[i.category] || 0) + i.subtotal; return acc;
+      }, {});
+      const catStr = [
+        cats.food  ? `食品 ¥${cats.food.toLocaleString()}`  : '',
+        cats.daily ? `日用 ¥${cats.daily.toLocaleString()}` : '',
+        cats.other ? `他   ¥${cats.other.toLocaleString()}` : '',
+      ].filter(Boolean).join(' / ');
+      return `
+        <div class="history-item" onclick='openModal(${JSON.stringify(r)})'>
+          ${thumb}
+          <div class="history-info">
+            <div class="history-store">${escHtml(r.store || '汎用')}</div>
+            <div class="history-date">${date}</div>
+            <div class="history-total">¥${total.toLocaleString()}</div>
+            <div class="history-cats">${escHtml(catStr)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    el.innerHTML = '<div class="empty"><span>❌</span>読み込み失敗</div>';
+    toast('履歴の取得に失敗しました', 'error');
+    console.error('[loadHistory]', err);
+  }
+}
+
+// ─────────────────────────────────────────
+// MODAL
+// ─────────────────────────────────────────
+function openModal(r) {
+  document.getElementById('modalTitle').textContent = r.store || '汎用';
+  const imgEl = document.getElementById('modalImg');
+  const thumbUrl = getThumbnailUrl(r.image_path);
+  if (thumbUrl) {
+    imgEl.src = thumbUrl;
+    imgEl.classList.add('show');
+  } else {
+    imgEl.classList.remove('show');
+  }
+  // 明細
+  const its = r.items || [];
+  document.getElementById('modalItems').innerHTML = its.map(i => `
+    <div class="item-row" style="pointer-events:none">
+      <div class="item-name-wrap">
+        <div class="item-name" style="padding:2px 4px">${escHtml(i.name)}</div>
+        <div class="item-meta">数量: ${i.qty}</div>
+      </div>
+      <div class="item-price">¥${(i.unitPrice||0).toLocaleString()}</div>
+      <span class="category-btn cat-${i.category}">
+        ${i.category==='food'?'食品':i.category==='daily'?'日用':'他'}
+      </span>
+    </div>`).join('');
+  // サマリー
+  const sum = c => its.filter(i=>i.category===c).reduce((s,i)=>s+i.subtotal,0);
+  const f=sum('food'),d=sum('daily'),o=sum('other'),t=f+d+o;
+  document.getElementById('modalSummary').innerHTML = `
+    <div class="summary-row"><span>🥦 食品</span><span class="summary-val">¥${f.toLocaleString()}</span></div>
+    <div class="summary-row"><span>🧴 日用品</span><span class="summary-val">¥${d.toLocaleString()}</span></div>
+    <div class="summary-row"><span>📦 その他</span><span class="summary-val">¥${o.toLocaleString()}</span></div>
+    <div class="summary-row"><span>合計</span><span class="summary-val">¥${t.toLocaleString()}</span></div>`;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+(async () => {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) { currentUser = data.session.user; onLoggedIn(); }
+  } catch (err) { console.error('[Init]', err); }
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN'  && session) { currentUser = session.user; onLoggedIn(); }
+    if (event === 'SIGNED_OUT')            { currentUser = null; }
+  });
+})();
+</script>
+</body>
+</html>
