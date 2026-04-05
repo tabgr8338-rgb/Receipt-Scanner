@@ -2,1027 +2,133 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Receipt AI Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt AI Pro - Production</title>
 <style>
-:root {
-  --bg:#f5f6fa;
-  --card:#fff;
-  --card2:#f0f2f8;
-  --primary:#4f46e5;
-  --primary-light:#eef2ff;
-  --primary-dark:#3730a3;
-  --food:#059669;
-  --food-bg:#d1fae5;
-  --other:#4338ca;
-  --other-bg:#e0e7ff;
-  --text:#111827;
-  --sub:#6b7280;
-  --border:#e5e7eb;
-  --danger:#dc2626;
-  --warn:#d97706;
-  --success:#059669;
-  --radius:14px;
-  --shadow:0 2px 8px rgba(0,0,0,0.07);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.app{max-width:520px;margin:0 auto;padding-bottom:80px}
-
-/* ===== HEADER ===== */
-.app-header{
-  position:sticky;top:0;z-index:50;
-  background:rgba(245,246,250,0.92);
-  backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border);
-  padding:12px 16px 0;
-}
-.header-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.header-icon{width:36px;height:36px;background:var(--primary);border-radius:10px;display:grid;place-items:center;color:#fff;font-size:17px;flex-shrink:0}
-.header-title{font-size:17px;font-weight:700;color:var(--text)}
-.header-sub{font-size:11px;color:var(--sub)}
-
-/* ===== TABS ===== */
-.tab-nav{display:flex;gap:2px;background:#e9eaf0;border-radius:10px;padding:4px;margin-bottom:0}
-.tab-btn{flex:1;padding:8px 4px;border:none;background:transparent;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--sub);transition:all .15s;font-family:inherit}
-.tab-btn.active{background:#fff;color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.10)}
-
-/* ===== PAGE ===== */
-.page{display:none;padding:16px}
-.page.active{display:block}
-
-/* ===== SCAN FAB ===== */
-.scan-fab{
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;padding:16px;
-  background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
-  border:none;border-radius:var(--radius);
-  color:#fff;font-size:16px;font-weight:700;
-  font-family:inherit;cursor:pointer;
-  box-shadow:0 6px 18px rgba(79,70,229,0.35);
-  transition:transform .15s,box-shadow .15s;
-  margin-bottom:16px;
-}
-.scan-fab:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(79,70,229,0.45)}
-.scan-fab:active{transform:scale(0.98)}
-
-/* ===== FILTER BAR ===== */
-.filter-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
-.filter-chip{
-  padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;
-  border:1.5px solid var(--border);background:#fff;color:var(--sub);
-  cursor:pointer;font-family:inherit;transition:all .15s;
-}
-.filter-chip:hover{border-color:var(--primary);color:var(--primary)}
-.filter-chip.active-all  {background:var(--primary);border-color:var(--primary);color:#fff}
-.filter-chip.active-food {background:var(--food-bg);border-color:var(--food);color:var(--food)}
-.filter-chip.active-other{background:var(--other-bg);border-color:var(--other);color:var(--other)}
-.filter-select{
-  padding:7px 26px 7px 12px;border-radius:999px;font-size:12px;
-  border:1.5px solid var(--border);background:#fff;color:var(--text);
-  font-family:inherit;cursor:pointer;outline:none;
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 10px center;
-}
-
-/* ===== SUMMARY CARDS ===== */
-.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-.summary-card{
-  background:var(--card);border-radius:var(--radius);
-  padding:14px 16px;box-shadow:var(--shadow);
-  border:1px solid var(--border);
-}
-.summary-card.wide{grid-column:1/-1}
-.summary-label{font-size:10px;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
-.summary-amount{font-size:24px;font-weight:700;font-family:monospace;color:var(--text);margin-bottom:4px}
-.summary-sub{font-size:11px;color:var(--sub)}
-.tax-pill{
-  display:inline-flex;align-items:center;gap:6px;
-  background:var(--primary-light);border:1.5px solid rgba(79,70,229,.25);
-  color:var(--primary);font-size:11px;font-weight:600;
-  padding:4px 12px;border-radius:999px;margin-top:6px;
-}
-.food-amount{color:var(--food)}
-.other-amount{color:var(--other)}
-
-/* ===== RECEIPT LIST ===== */
-.section-label{font-size:11px;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;padding:0 2px}
-.receipt-card{
-  background:var(--card);border-radius:var(--radius);
-  border:1px solid var(--border);box-shadow:var(--shadow);
-  margin-bottom:10px;overflow:hidden;
-  transition:box-shadow .15s;
-}
-.receipt-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.10)}
-.receipt-header{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px 12px;cursor:pointer}
-.receipt-store{font-size:14px;font-weight:700;margin-bottom:3px;color:var(--text)}
-.receipt-meta{font-size:11px;color:var(--sub)}
-.receipt-right{text-align:right}
-.receipt-amount{font-size:16px;font-weight:700;font-family:monospace;color:var(--text)}
-.receipt-badges{display:flex;gap:4px;justify-content:flex-end;margin-top:4px}
-.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px}
-.badge-food {background:var(--food-bg);color:var(--food)}
-.badge-other{background:var(--other-bg);color:var(--other)}
-.receipt-items-wrap{display:none;border-top:1px solid var(--border)}
-.receipt-items-wrap.open{display:block}
-.receipt-item-row{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);font-size:13px}
-.receipt-item-row:last-child{border-bottom:none}
-.item-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.item-dot-food {background:var(--food)}
-.item-dot-other{background:var(--other)}
-.item-nm{flex:1;color:var(--text)}
-.item-qt{color:var(--sub);font-size:11px;white-space:nowrap}
-.item-pr{font-family:monospace;font-weight:700;white-space:nowrap}
-.tax-tag{font-size:9px;color:var(--food);background:var(--food-bg);border:1px solid rgba(5,150,105,.25);padding:1px 5px;border-radius:4px;flex-shrink:0}
-.receipt-footer{display:flex;justify-content:flex-end;padding:8px 12px}
-.del-receipt-btn{background:none;border:1px solid var(--border);color:var(--sub);font-size:11px;padding:4px 12px;border-radius:999px;cursor:pointer;font-family:inherit;transition:all .15s}
-.del-receipt-btn:hover{border-color:var(--danger);color:var(--danger)}
-
-/* ===== CARD ===== */
-.card{background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow);border:1px solid var(--border)}
-.card-title{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
-
-/* ===== UPLOAD ===== */
-.upload-area{border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:#fafbff}
-.upload-area:hover{border-color:var(--primary);background:var(--primary-light)}
-.upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.upload-icon{font-size:28px;margin-bottom:6px}
-.upload-label{font-size:13px;font-weight:600;color:var(--primary)}
-.upload-sub{font-size:11px;color:var(--sub);margin-top:3px}
-.file-name{margin-top:6px;font-size:12px;font-weight:600;color:var(--primary)}
-
-/* ===== PROGRESS ===== */
-.progress-wrap{display:none;margin-top:10px}
-.progress-wrap.show{display:block}
-.progress-label{font-size:11px;color:var(--sub);margin-bottom:4px;display:flex;justify-content:space-between}
-.progress-bar{height:5px;background:var(--border);border-radius:999px;overflow:hidden}
-.progress-fill{height:100%;background:var(--primary);border-radius:999px;transition:width .3s;width:0%}
-
-/* ===== BUTTONS ===== */
-.btn{display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;font-size:14px;font-weight:600;padding:11px 16px;border-radius:9px;cursor:pointer;border:none;transition:all .15s;width:100%;margin-top:8px}
-.btn-primary{background:var(--primary);color:#fff}
-.btn-primary:hover{background:var(--primary-dark)}
-.btn-primary:disabled{background:#9ca3af;cursor:not-allowed}
-.btn-success{background:var(--success);color:#fff}
-.btn-success:disabled{background:#9ca3af;cursor:not-allowed}
-.btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary)}
-.btn-outline:hover{background:var(--primary-light)}
-.btn-danger{background:var(--danger);color:#fff}
-.btn-sm{padding:5px 10px;font-size:11px;width:auto;margin-top:0;border-radius:6px}
-
-/* ===== FORM ===== */
-.form-row{display:flex;gap:8px;margin-top:6px}
-.form-group{flex:1}
-.form-label{font-size:11px;color:var(--sub);margin-bottom:3px;display:block}
-.form-input{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;outline:none;transition:border .15s;background:#fff}
-.form-input:focus{border-color:var(--primary)}
-
-/* ===== ITEM TABLE ===== */
-.item-row{display:grid;grid-template-columns:1fr 70px 42px 42px 28px;gap:4px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}
-.item-row:last-child{border-bottom:none}
-.item-hdr{display:grid;grid-template-columns:1fr 70px 42px 42px 28px;gap:4px;padding:4px 0 6px;border-bottom:2px solid var(--border);margin-bottom:2px}
-.item-hdr span{font-size:10px;color:var(--sub);font-weight:600}
-.item-hdr span:nth-child(2),.item-hdr span:nth-child(3){text-align:right}
-.item-name{width:100%;border:none;background:transparent;font-family:inherit;font-size:13px;color:var(--text);padding:2px 3px;border-radius:4px;outline:none}
-.item-name:focus{background:#f5f7ff}
-.item-num{font-size:13px;border:none;background:transparent;font-family:inherit;text-align:right;color:var(--text);padding:2px 3px;border-radius:4px;outline:none;width:100%}
-.item-num:focus{background:#f5f7ff}
-.item-meta-small{font-size:10px;color:var(--sub);padding:0 3px}
-.cat-btn{font-size:10px;font-weight:700;padding:3px 5px;border-radius:5px;border:none;cursor:pointer;width:100%;font-family:inherit}
-.cat-food {background:var(--food-bg);color:var(--food)}
-.cat-other{background:var(--other-bg);color:var(--other)}
-.del-item-btn{background:none;border:none;color:#d1d5db;cursor:pointer;font-size:14px;padding:2px;border-radius:4px}
-.del-item-btn:hover{color:var(--danger)}
-
-/* ===== SUMMARY BOX ===== */
-.summary-box{background:var(--primary-light);border-radius:10px;padding:12px 14px;margin-top:12px;border:1px solid rgba(79,70,229,.15)}
-.sum-row{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);padding:3px 0}
-.sum-row-total{display:flex;justify-content:space-between;font-size:15px;font-weight:700;color:var(--text);border-top:1px solid rgba(79,70,229,.2);padding-top:8px;margin-top:6px}
-.sum-val{font-family:monospace;font-weight:600}
-
-/* ===== SETTINGS ===== */
-.setting-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
-.setting-row:last-child{border-bottom:none}
-.setting-label{font-size:13px;font-weight:600}
-.setting-sub{font-size:10px;color:var(--sub);margin-top:2px}
-.setting-input{width:68px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:monospace;font-size:13px;text-align:right;outline:none}
-.setting-input:focus{border-color:var(--primary)}
-
-/* ===== MODAL ===== */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:flex-end;justify-content:center}
-.modal-overlay.show{display:flex}
-.modal{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;padding:18px;animation:slideUp .2s ease}
-@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
-.modal-handle{width:38px;height:4px;background:#e5e7eb;border-radius:2px;margin:0 auto 14px}
-.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.modal-title{font-size:15px;font-weight:700}
-.modal-close{background:#f3f4f6;border:none;border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:14px}
-.modal-img{width:100%;border-radius:10px;margin-bottom:12px;display:none}
-.modal-img.show{display:block}
-
-/* ===== TOAST ===== */
-.toast-wrap{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:6px;pointer-events:none}
-.toast{padding:9px 18px;border-radius:999px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:tIn .2s ease,tOut .3s ease 2.5s forwards;white-space:nowrap}
-.toast-success{background:var(--success)}
-.toast-error{background:var(--danger)}
-.toast-warn{background:var(--warn)}
-@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes tOut{to{opacity:0}}
-
-.empty{text-align:center;padding:28px 0;color:var(--sub);font-size:13px}
-.empty span{font-size:28px;display:block;margin-bottom:6px}
+body{font-family:sans-serif;margin:0;background:#0f172a;color:#fff}
+.container{max-width:520px;margin:auto;padding:12px}
+h1{font-size:18px}
+button{padding:10px;border:none;border-radius:8px;background:#2563eb;color:#fff;margin:5px;cursor:pointer}
+video{width:100%;border-radius:12px}
+.card{background:#1e293b;padding:10px;border-radius:12px;margin-top:10px}
+.item{padding:8px;border-bottom:1px solid #334155;cursor:pointer}
+.item:hover{background:#334155}
+input{padding:6px;border-radius:6px;border:none;width:100%}
+.flex{display:flex;gap:6px}
+.small{font-size:12px;color:#94a3b8}
 </style>
 </head>
 <body>
 
-<div class="app">
-  <!-- HEADER -->
-  <div class="app-header">
-    <div class="header-top">
-      <div class="header-icon">🧾</div>
-      <div>
-        <div class="header-title">Receipt AI Pro</div>
-        <div class="header-sub">レシートをスキャンして自動仕訳</div>
-      </div>
-    </div>
-    <div class="tab-nav">
-      <button class="tab-btn active" id="tabHome"     onclick="switchTab('home')">🏠 ホーム</button>
-      <button class="tab-btn"        id="tabScan"     onclick="switchTab('scan')">📷 スキャン</button>
-      <button class="tab-btn"        id="tabHistory"  onclick="switchTab('history')">📋 履歴</button>
-      <button class="tab-btn"        id="tabSettings" onclick="switchTab('settings')">⚙ 設定</button>
-    </div>
-  </div>
+<div class="container">
+<h1>🧾 Receipt AI Pro</h1>
 
-  <!-- ===================== HOME ===================== -->
-  <div class="page active" id="pageHome">
+<button onclick="startCamera()">📷 カメラ開始</button>
+<button onclick="stopCamera()">停止</button>
 
-    <!-- スキャンFAB -->
-    <button class="scan-fab" onclick="switchTab('scan')">
-      <span style="font-size:20px">📷</span> レシートをスキャン
-    </button>
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas" style="display:none"></canvas>
 
-    <!-- フィルター -->
-    <div class="filter-bar">
-      <button class="filter-chip active-all"  id="chip-all"   onclick="setFilter('all',this)">すべて</button>
-      <button class="filter-chip"             id="chip-food"  onclick="setFilter('food',this)">🥦 食品</button>
-      <button class="filter-chip"             id="chip-other" onclick="setFilter('other',this)">📦 その他</button>
-      <select class="filter-select" id="periodSelect" onchange="renderHome()">
-        <option value="all">全期間</option>
-        <option value="today">今日</option>
-        <option value="week" selected>今週</option>
-        <option value="month">今月</option>
-        <option value="3months">3ヶ月</option>
-        <option value="year">今年</option>
-      </select>
-    </div>
-
-    <!-- サマリーカード -->
-    <div class="summary-grid">
-      <div class="summary-card wide">
-        <div class="summary-label">税込合計</div>
-        <div class="summary-amount" id="homeTotal">¥0</div>
-        <div class="tax-pill">うち消費税 <span id="homeTax" style="font-family:monospace">¥0</span></div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">食品（軽減）</div>
-        <div class="summary-amount food-amount" id="homeFood">¥0</div>
-        <div class="summary-sub" id="homeFoodCount">0件</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">その他（標準）</div>
-        <div class="summary-amount other-amount" id="homeOther">¥0</div>
-        <div class="summary-sub" id="homeOtherCount">0件</div>
-      </div>
-    </div>
-
-    <!-- レシート一覧 -->
-    <div class="section-label">レシート一覧</div>
-    <div id="homeList">
-      <div class="empty"><span>🧾</span>レシートをスキャンして追加しましょう</div>
-    </div>
-  </div>
-
-  <!-- ===================== SCAN ===================== -->
-  <div class="page" id="pageScan">
-    <div class="card">
-      <div class="card-title">📷 画像を選択</div>
-      <div class="upload-area">
-        <input type="file" id="file" accept="image/*" multiple onchange="onFileSelect(this)">
-        <div class="upload-icon">📄</div>
-        <div class="upload-label">タップして選択 / 複数枚OK</div>
-        <div class="upload-sub">JPEG・PNG・HEIC対応</div>
-        <div class="file-name" id="fileName"></div>
-      </div>
-      <div class="progress-wrap" id="progressWrap">
-        <div class="progress-label"><span id="progressLabel">準備中...</span><span id="progressPct">0%</span></div>
-        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      </div>
-      <button class="btn btn-primary" id="scanBtn" onclick="scan(this)" disabled>🔍 スキャン開始</button>
-    </div>
-
-    <div class="card" id="metaCard" style="display:none">
-      <div class="card-title">🏪 店舗情報</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">店舗名</label>
-          <input id="store" class="form-input" placeholder="自動検出または入力">
-        </div>
-        <div class="form-group" style="max-width:130px">
-          <label class="form-label">日付</label>
-          <input type="date" id="date" class="form-input">
-        </div>
-      </div>
-    </div>
-
-    <div class="card" id="itemsCard" style="display:none">
-      <div class="card-title">📋 明細</div>
-      <div class="item-hdr">
-        <span>品名</span><span style="text-align:right">単価</span><span style="text-align:right">数量</span><span>種類</span><span></span>
-      </div>
-      <div id="items"></div>
-      <button class="btn btn-outline" style="margin-top:8px;font-size:12px" onclick="addItem()">＋ 商品を追加</button>
-
-      <div class="summary-box" id="summaryArea"></div>
-
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-outline" style="width:40%" onclick="confirmData()">✓ 確認</button>
-        <button class="btn btn-success" style="width:60%" id="saveBtn" onclick="saveReceipt(this)">💾 保存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================== HISTORY ===================== -->
-  <div class="page" id="pageHistory">
-    <div class="card">
-      <div class="card-title">📋 保存済みレシート</div>
-      <div class="filter-bar">
-        <button class="filter-chip active-all" id="hchip-all"   onclick="setHistFilter('all',this)">すべて</button>
-        <button class="filter-chip"            id="hchip-food"  onclick="setHistFilter('food',this)">🥦 食品</button>
-        <button class="filter-chip"            id="hchip-other" onclick="setHistFilter('other',this)">📦 その他</button>
-        <select class="filter-select" id="histPeriod" onchange="loadHistory()">
-          <option value="all">全期間</option>
-          <option value="today">今日</option>
-          <option value="week" selected>今週</option>
-          <option value="month">今月</option>
-          <option value="3months">3ヶ月</option>
-          <option value="year">今年</option>
-        </select>
-      </div>
-
-      <!-- 履歴サマリー -->
-      <div class="summary-box" id="histSummaryBox" style="display:none;margin-bottom:12px">
-        <div class="sum-row"><span>食品合計（税込）</span><span class="sum-val" id="hFood">¥0</span></div>
-        <div class="sum-row"><span>その他合計（税込）</span><span class="sum-val" id="hOther">¥0</span></div>
-        <div class="sum-row"><span>消費税合計</span><span class="sum-val" id="hTax">¥0</span></div>
-        <div class="sum-row-total"><span>合計（税込）</span><span class="sum-val" id="hTotal">¥0</span></div>
-      </div>
-
-      <div id="historyList"></div>
-    </div>
-  </div>
-
-  <!-- ===================== SETTINGS ===================== -->
-  <div class="page" id="pageSettings">
-    <div class="card">
-      <div class="card-title">⚙ 税率設定</div>
-      <div class="setting-row">
-        <div><div class="setting-label">食品（軽減税率）</div><div class="setting-sub">※・軽 マーク商品</div></div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <input type="number" id="taxFood" class="setting-input" value="8" min="0" max="100" step="0.1">
-          <span style="font-size:12px;color:var(--sub)">%</span>
-        </div>
-      </div>
-      <div class="setting-row">
-        <div><div class="setting-label">その他（標準税率）</div><div class="setting-sub">通常の商品・サービス</div></div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <input type="number" id="taxOther" class="setting-input" value="10" min="0" max="100" step="0.1">
-          <span style="font-size:12px;color:var(--sub)">%</span>
-        </div>
-      </div>
-      <div style="font-size:10px;color:var(--sub);margin-top:8px;line-height:1.6">
-        ※ 税率変更は今後の登録にのみ適用。過去データは登録時の税率を保持。
-      </div>
-      <button class="btn btn-primary" onclick="saveSettings()">✓ 保存</button>
-    </div>
-
-    <div class="card">
-      <div class="card-title">🗄 データ管理</div>
-      <div class="setting-row">
-        <div><div class="setting-label">データ保存期間</div><div class="setting-sub">超過データを自動削除</div></div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <input type="number" id="retentionDays" class="setting-input" value="365" min="30" max="3650">
-          <span style="font-size:12px;color:var(--sub)">日</span>
-        </div>
-      </div>
-      <button class="btn btn-outline" onclick="exportData()" style="margin-top:10px">📤 JSONエクスポート</button>
-      <button class="btn btn-danger"  onclick="clearAllData()" style="margin-top:6px">🗑 全データ削除</button>
-    </div>
-  </div>
+<div class="card">
+<h3>候補（タップで追加）</h3>
+<div id="candidates"></div>
 </div>
 
-<!-- MODAL -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
-      <div class="modal-title" id="modalTitle"></div>
-      <button class="modal-close" onclick="closeModalDirect()">✕</button>
-    </div>
-    <img class="modal-img" id="modalImg" alt="レシート">
-    <div id="modalItems"></div>
-    <div id="modalSummary" style="margin-top:10px"></div>
-  </div>
+<div class="card">
+<h3>明細</h3>
+<div id="items"></div>
+<div class="small">※タップで編集</div>
 </div>
 
-<div class="toast-wrap" id="toastWrap"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 
 <script>
-// =========================================
-// IndexedDB
-// =========================================
-const DB_NAME='receiptAIPro2', DB_VER=1;
-let db;
+let stream=null,running=false,items=[];
 
-function openDB(){
-  return new Promise((res,rej)=>{
-    const req=indexedDB.open(DB_NAME,DB_VER);
-    req.onupgradeneeded=e=>{
-      const d=e.target.result;
-      if(!d.objectStoreNames.contains('receipts'))
-        d.createObjectStore('receipts',{keyPath:'id',autoIncrement:true});
-      if(!d.objectStoreNames.contains('dictionary'))
-        d.createObjectStore('dictionary',{keyPath:'raw'});
-    };
-    req.onsuccess=e=>{db=e.target.result;res(db);};
-    req.onerror=e=>rej(e.target.error);
-  });
+// ========= Camera =========
+async function startCamera(){
+ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+ video.srcObject=stream;
+ running=true;
+ loop();
 }
-const dbAdd   =(s,d)=>new Promise((res,rej)=>{const r=db.transaction(s,'readwrite').objectStore(s).add(d);r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error);});
-const dbGetAll=s=>new Promise((res,rej)=>{const r=db.transaction(s,'readonly').objectStore(s).getAll();r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error);});
-const dbDelete=(s,id)=>new Promise((res,rej)=>{const r=db.transaction(s,'readwrite').objectStore(s).delete(id);r.onsuccess=()=>res();r.onerror=e=>rej(e.target.error);});
-const dbClear =s=>new Promise((res,rej)=>{const r=db.transaction(s,'readwrite').objectStore(s).clear();r.onsuccess=()=>res();r.onerror=e=>rej(e.target.error);});
-const dbPut   =(s,d)=>new Promise((res,rej)=>{const r=db.transaction(s,'readwrite').objectStore(s).put(d);r.onsuccess=()=>res();r.onerror=e=>rej(e.target.error);});
-
-// =========================================
-// Settings
-// =========================================
-let settings={taxFood:8,taxOther:10,retentionDays:365};
-
-function loadSettings(){
-  const s=localStorage.getItem('receiptAIPro2_s');
-  if(s) settings={...settings,...JSON.parse(s)};
-  document.getElementById('taxFood').value=settings.taxFood;
-  document.getElementById('taxOther').value=settings.taxOther;
-  document.getElementById('retentionDays').value=settings.retentionDays;
-}
-function saveSettings(){
-  settings.taxFood=parseFloat(document.getElementById('taxFood').value)||8;
-  settings.taxOther=parseFloat(document.getElementById('taxOther').value)||10;
-  settings.retentionDays=parseInt(document.getElementById('retentionDays').value)||365;
-  localStorage.setItem('receiptAIPro2_s',JSON.stringify(settings));
-  toast('設定を保存しました','success');
+function stopCamera(){
+ running=false;
+ if(stream)stream.getTracks().forEach(t=>t.stop());
 }
 
-// =========================================
-// Toast / Tab
-// =========================================
-function toast(msg,type='success'){
-  const el=document.createElement('div');
-  el.className=`toast toast-${type}`;el.textContent=msg;
-  document.getElementById('toastWrap').appendChild(el);
-  setTimeout(()=>el.remove(),3000);
+// ========= Loop =========
+async function loop(){
+ if(!running)return;
+ capture();
+ const text=await ocr();
+ const lines=parse(text);
+ renderCandidates(lines);
+ setTimeout(loop,1200);
 }
 
-function switchTab(tab){
-  ['home','scan','history','settings'].forEach(t=>{
-    document.getElementById('page'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
-    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
-  });
-  if(tab==='home')    renderHome();
-  if(tab==='history') loadHistory();
+function capture(){
+ const ctx=canvas.getContext('2d');
+ canvas.width=video.videoWidth;
+ canvas.height=video.videoHeight;
+ ctx.drawImage(video,0,0);
 }
 
-// =========================================
-// Period helper
-// =========================================
-function getPeriodRange(p){
-  const now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  if(p==='today')   return[today,now];
-  if(p==='week')    {const d=new Date(today);d.setDate(d.getDate()-6);return[d,now];}
-  if(p==='month')   {const d=new Date(today);d.setDate(1);return[d,now];}
-  if(p==='3months') {const d=new Date(today);d.setMonth(d.getMonth()-3);return[d,now];}
-  if(p==='year')    return[new Date(now.getFullYear(),0,1),now];
-  return[null,null];
+// ========= OCR =========
+async function ocr(){
+ const res=await Tesseract.recognize(canvas,'jpn+eng',{logger:m=>{}});
+ return res.data.text;
 }
 
-function filterData(data,period,category){
-  const[start,end]=getPeriodRange(period);
-  let d=data;
-  if(start) d=d.filter(r=>{const dt=new Date(r.date);return dt>=start&&dt<=end;});
-  if(category!=='all') d=d.filter(r=>r.items.some(i=>i.category===category));
-  return d.sort((a,b)=>new Date(b.date)-new Date(a.date));
-}
-
-// =========================================
-// HOME
-// =========================================
-let homeFilter='all';
-
-function setFilter(f,btn){
-  homeFilter=f;
-  ['all','food','other'].forEach(k=>{
-    const c=document.getElementById('chip-'+k);
-    c.className='filter-chip'+(k===f?' active-'+k:'');
-  });
-  renderHome();
-}
-
-async function renderHome(){
-  const all=await dbGetAll('receipts');
-  const period=document.getElementById('periodSelect').value;
-  const data=filterData(all,period,homeFilter);
-
-  // 集計
-  let totalInc=0,totalTax=0,foodInc=0,otherInc=0,foodCnt=0,otherCnt=0;
-  data.forEach(r=>r.items.forEach(i=>{
-    if(homeFilter!=='all'&&i.category!==homeFilter) return;
-    const inc=i.taxedSubtotal||0,rate=(i.taxRate||10)/100;
-    const tax=inc/(1+rate)*rate;
-    totalInc+=inc;totalTax+=tax;
-    if(i.category==='food'){foodInc+=inc;foodCnt++;}
-    else{otherInc+=inc;otherCnt++;}
-  }));
-
-  document.getElementById('homeTotal').textContent='¥'+Math.round(totalInc).toLocaleString();
-  document.getElementById('homeTax').textContent='¥'+Math.round(totalTax).toLocaleString();
-  document.getElementById('homeFood').textContent='¥'+Math.round(foodInc).toLocaleString();
-  document.getElementById('homeOther').textContent='¥'+Math.round(otherInc).toLocaleString();
-  document.getElementById('homeFoodCount').textContent=foodCnt+'件';
-  document.getElementById('homeOtherCount').textContent=otherCnt+'件';
-
-  const list=document.getElementById('homeList');
-  if(!data.length){
-    list.innerHTML='<div class="empty"><span>🧾</span>この期間のレシートはありません</div>';
-    return;
-  }
-
-  list.innerHTML=data.map(r=>{
-    const dispItems=homeFilter==='all'?r.items:r.items.filter(i=>i.category===homeFilter);
-    const total=dispItems.reduce((s,i)=>s+(i.taxedSubtotal||0),0);
-    const hasFd=r.items.some(i=>i.category==='food');
-    const hasOt=r.items.some(i=>i.category==='other');
-    const ds=new Date(r.date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
-    return`<div class="receipt-card">
-      <div class="receipt-header" onclick="toggleReceiptItems('rc${r.id}')">
-        <div>
-          <div class="receipt-store">${escHtml(r.store||'汎用')}</div>
-          <div class="receipt-meta">${ds} ・ ${dispItems.length}品目</div>
-        </div>
-        <div class="receipt-right">
-          <div class="receipt-amount">¥${Math.round(total).toLocaleString()}</div>
-          <div class="receipt-badges">
-            ${hasFd?'<span class="badge badge-food">食品</span>':''}
-            ${hasOt?'<span class="badge badge-other">その他</span>':''}
-          </div>
-        </div>
-      </div>
-      <div class="receipt-items-wrap" id="rc${r.id}">
-        ${dispItems.map(i=>`<div class="receipt-item-row">
-          <div class="item-dot ${i.category==='food'?'item-dot-food':'item-dot-other'}"></div>
-          <div class="item-nm">${escHtml(i.name)}</div>
-          ${i.category==='food'?'<span class="tax-tag">軽8%</span>':''}
-          <div class="item-qt">×${i.qty}</div>
-          <div class="item-pr">¥${Math.round(i.taxedSubtotal||0).toLocaleString()}</div>
-        </div>`).join('')}
-        <div class="receipt-footer">
-          <button class="del-receipt-btn" onclick="deleteReceipt(${r.id})">削除</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function toggleReceiptItems(id){
-  const el=document.getElementById(id);
-  if(el) el.classList.toggle('open');
-}
-
-async function deleteReceipt(id){
-  if(!confirm('このレシートを削除しますか？')) return;
-  await dbDelete('receipts',id);
-  toast('削除しました','warn');
-  renderHome();
-  loadHistory();
-}
-
-// =========================================
-// SCAN — Image processing
-// =========================================
-function preprocessForOCR(file){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onerror=()=>reject(new Error('ファイル読み込み失敗'));
-    reader.onload=e=>{
-      const img=new Image();
-      img.onerror=()=>reject(new Error('画像解析失敗'));
-      img.onload=()=>{
-        try{
-          const W=1200,scale=W/img.width;
-          const canvas=document.createElement('canvas');
-          canvas.width=W;canvas.height=Math.round(img.height*scale);
-          const ctx=canvas.getContext('2d');
-          ctx.filter='contrast(1.4) brightness(1.1)';
-          ctx.drawImage(img,0,0,canvas.width,canvas.height);
-          const id=ctx.getImageData(0,0,canvas.width,canvas.height),d=id.data;
-          const hist=new Array(256).fill(0);
-          for(let i=0;i<d.length;i+=4) hist[Math.round(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])]++;
-          const total=canvas.width*canvas.height;
-          let sum=0;for(let i=0;i<256;i++) sum+=i*hist[i];
-          let sumB=0,wB=0,maxVar=0,thresh=128;
-          for(let t=0;t<256;t++){
-            wB+=hist[t];if(!wB||wB===total) continue;
-            const wF=total-wB;sumB+=t*hist[t];
-            const v=wB*wF*((sumB/wB)-((sum-sumB)/wF))**2;
-            if(v>maxVar){maxVar=v;thresh=t;}
-          }
-          for(let i=0;i<d.length;i+=4){
-            const g=Math.round(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);
-            d[i]=d[i+1]=d[i+2]=g>thresh?255:0;
-          }
-          ctx.putImageData(id,0,0);
-          resolve(canvas);
-        }catch(err){reject(err);}
-      };
-      img.src=e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function makeThumbnail(file){
-  return new Promise(resolve=>{
-    const reader=new FileReader();
-    reader.onerror=()=>resolve(null);
-    reader.onload=e=>{
-      const img=new Image();
-      img.onerror=()=>resolve(null);
-      img.onload=()=>{
-        try{
-          const W=400,scale=W/img.width;
-          const canvas=document.createElement('canvas');
-          canvas.width=W;canvas.height=Math.round(img.height*scale);
-          canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-          resolve(canvas.toDataURL('image/jpeg',0.6));
-        }catch{resolve(null);}
-      };
-      img.src=e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// =========================================
-// Store / Category
-// =========================================
-function detectStore(text){
-  if(/セブン|7[-‐]ELEVEN/i.test(text))          return 'seven';
-  if(/イオン|AEON/i.test(text))                 return 'aeon';
-  if(/ファミリーマート|ファミマ|FamilyMart/i.test(text)) return 'family';
-  if(/ローソン|LAWSON/i.test(text))              return 'lawson';
-  return 'generic';
-}
-const STORE_LABELS={seven:'セブン-イレブン',aeon:'イオン',family:'ファミリーマート',lawson:'ローソン',generic:'汎用'};
-
-function detectCategory(line){
-  if(/[※＊]\s*軽|軽減/.test(line)) return 'food';
-  if(/[※＊]/.test(line))           return 'food';
-  if(/食品|飲料|弁当|おにぎり|サンド|パン|菓子|ジュース|お茶|緑茶|麦茶/.test(line)) return 'food';
-  return 'other';
-}
-
+// ========= Parse =========
 function parse(text){
-  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l.length>1);
-  const results=[];
-  lines.forEach(l=>{
-    if(/^(合計|小計|税|おつり|預り|消費税|内税|外税|ありがとう|Tel|TEL|〒|領収|割引|値引)/i.test(l)) return;
-    let m=l.match(/^(.+?)\s+(\d+)\s*[×xX]\s*([\d,]+)/);
-    if(m){
-      const qty=parseInt(m[2],10),price=parseInt(m[3].replace(/,/g,''),10);
-      if(qty>0&&price>0&&price<=100000)
-        return results.push({name:m[1].trim(),price,qty,subtotal:price*qty,category:detectCategory(l),confidence:0.9});
-    }
-    m=l.match(/^(.+?)\s+[¥￥]([\d,]+)/);
-    if(m){const p=parseInt(m[2].replace(/,/g,''),10);if(p>0&&p<=100000) return results.push({name:m[1].trim(),price:p,qty:1,subtotal:p,category:detectCategory(l),confidence:0.85});}
-    m=l.match(/^(.+?)\s+([\d,]+)\s*円?$/);
-    if(m){const p=parseInt(m[2].replace(/,/g,''),10);if(p>0&&p<=100000) return results.push({name:m[1].trim(),price:p,qty:1,subtotal:p,category:detectCategory(l),confidence:0.6});}
-  });
-  return results;
+ return text.split("\n")
+  .map(l=>l.trim())
+  .filter(l=>/\d{2,}/.test(l) && !/合計|税|TEL/.test(l))
+  .slice(0,8);
 }
 
-// =========================================
-// Dictionary
-// =========================================
-let dictionary=[];
-async function loadDict(){dictionary=await dbGetAll('dictionary');}
-function normalizeName(name){
-  const candidates=dictionary.filter(d=>d.raw&&d.raw[0]===name[0]);
-  let best=name,bestScore=0;
-  for(const d of candidates){
-    const max=Math.max(d.raw.length,name.length);if(!max) continue;
-    let prev=Array.from({length:d.raw.length+1},(_,i)=>i);
-    for(let i=1;i<=name.length;i++){const curr=[i];for(let j=1;j<=d.raw.length;j++)curr[j]=Math.min(curr[j-1]+1,prev[j]+1,prev[j-1]+(name[i-1]===d.raw[j-1]?0:1));prev=curr;}
-    const s=1-prev[d.raw.length]/max;
-    if(s>bestScore&&s>0.75){bestScore=s;best=d.normalized;}
-  }
-  return best;
-}
-async function learnDict(items){
-  for(const i of items)
-    if(i.originalName&&i.originalName!==i.name)
-      await dbPut('dictionary',{raw:i.originalName,normalized:i.name,count:1});
+// ========= Candidates =========
+function renderCandidates(lines){
+ candidates.innerHTML=lines.map(l=>
+  `<div class="item" onclick="addItem('${l}')">${l}</div>`
+ ).join('');
 }
 
-function escHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// ========= Items =========
+function addItem(line){
+ const parsed=parseLine(line);
+ items.push(parsed);
+ renderItems();
 }
 
-// =========================================
-// Progress
-// =========================================
-function setProgress(label,pct){
-  document.getElementById('progressWrap').classList.add('show');
-  document.getElementById('progressLabel').textContent=label;
-  document.getElementById('progressPct').textContent=pct+'%';
-  document.getElementById('progressFill').style.width=pct+'%';
-}
-function hideProgress(){document.getElementById('progressWrap').classList.remove('show');}
-
-// =========================================
-// Scan
-// =========================================
-let items=[],currentFiles=[];
-
-function onFileSelect(input){
-  currentFiles=Array.from(input.files);
-  if(!currentFiles.length) return;
-  document.getElementById('fileName').textContent=`📎 ${currentFiles.length}枚選択`;
-  document.getElementById('scanBtn').disabled=false;
+function parseLine(line){
+ const m=line.match(/(.+?)\s*(\d+)/);
+ if(m){
+  return {name:m[1],price:parseInt(m[2]),qty:1};
+ }
+ return {name:line,price:0,qty:1};
 }
 
-async function scan(btn){
-  if(!currentFiles.length){toast('ファイルを選択してください','warn');return;}
-  btn.disabled=true;items=[];
-  let detectedStore='generic';
-  try{
-    for(let fi=0;fi<currentFiles.length;fi++){
-      const file=currentFiles[fi];
-      const prefix=currentFiles.length>1?`[${fi+1}/${currentFiles.length}] `:'';
-      setProgress(prefix+'画像を前処理中...',Math.round((fi/currentFiles.length)*80+5));
-      const canvas=await preprocessForOCR(file);
-      setProgress(prefix+'OCR実行中...',Math.round((fi/currentFiles.length)*80+15));
-      const result=await Tesseract.recognize(canvas,'jpn+eng',{
-        tessedit_pageseg_mode:6,
-        logger:m=>{
-          if(m.status==='recognizing text'){
-            const base=(fi/currentFiles.length)*80;
-            setProgress(prefix+'テキスト認識中...',Math.round(base+m.progress*60));
-          }
-        }
-      });
-      const text=result?.data?.text||'';
-      if(fi===0){
-        detectedStore=detectStore(text);
-        document.getElementById('store').value=STORE_LABELS[detectedStore]||'';
-      }
-      const parsed=parse(text);
-      items=items.concat(parsed.map(i=>({...i,originalName:i.name,name:normalizeName(i.name)})));
-    }
-    setProgress('完了',100);
-    document.getElementById('date').value=new Date().toISOString().split('T')[0];
-    document.getElementById('metaCard').style.display='block';
-    document.getElementById('itemsCard').style.display='block';
-    render();
-    toast(`${items.length}件の明細を検出しました`,items.length?'success':'warn');
-  }catch(err){toast('❌ '+err.message,'error');}
-  finally{hideProgress();btn.disabled=false;}
+function renderItems(){
+ itemsDiv.innerHTML=items.map((i,idx)=>`
+  <div class="item" onclick="editItem(${idx})">
+    <div>${i.name}</div>
+    <div class="small">¥${i.price} × ${i.qty}</div>
+  </div>
+ `).join('');
 }
 
-// =========================================
-// Render items
-// =========================================
-function render(){
-  const el=document.getElementById('items');
-  if(!items.length){
-    el.innerHTML='<div class="empty"><span>📭</span>明細なし</div>';
-    document.getElementById('summaryArea').innerHTML='';
-    return;
-  }
-  el.innerHTML=items.map((item,idx)=>`
-    <div class="item-row">
-      <div>
-        <input class="item-name" value="${escHtml(item.name)}" onchange="items[${idx}].name=this.value">
-        <div class="item-meta-small">${item.confidence<0.7?'⚠ 要確認':''}</div>
-      </div>
-      <input class="item-num" type="number" min="0" value="${item.price}"
-        onchange="items[${idx}].price=Math.max(0,+this.value);items[${idx}].subtotal=items[${idx}].price*items[${idx}].qty;renderSummary()">
-      <input class="item-num" type="number" min="0" value="${item.qty}"
-        onchange="items[${idx}].qty=Math.max(0,+this.value);items[${idx}].subtotal=items[${idx}].price*items[${idx}].qty;renderSummary()">
-      <button class="cat-btn cat-${item.category}" onclick="toggleCat(${idx})">
-        ${item.category==='food'?'食品':'他'}
-      </button>
-      <button class="del-item-btn" onclick="removeItem(${idx})">✕</button>
-    </div>`).join('');
-  renderSummary();
+function editItem(i){
+ const name=prompt("商品名",items[i].name);
+ const price=prompt("価格",items[i].price);
+ const qty=prompt("数量",items[i].qty);
+ items[i]={name,price:parseInt(price),qty:parseInt(qty)};
+ renderItems();
 }
-
-function renderSummary(){
-  const tf=settings.taxFood/100,to=settings.taxOther/100;
-  const sum=c=>items.filter(i=>i.category===c).reduce((s,i)=>s+i.subtotal,0);
-  const f=sum('food'),o=sum('other');
-  const fInc=f*(1+tf),oInc=o*(1+to),tInc=fInc+oInc;
-  const tax=f*tf+o*to;
-  document.getElementById('summaryArea').innerHTML=`
-    <div class="sum-row"><span>🥦 食品（税込${settings.taxFood}%）</span><span class="sum-val">¥${Math.round(fInc).toLocaleString()}</span></div>
-    <div class="sum-row"><span>📦 その他（税込${settings.taxOther}%）</span><span class="sum-val">¥${Math.round(oInc).toLocaleString()}</span></div>
-    <div class="sum-row"><span>消費税合計</span><span class="sum-val">¥${Math.round(tax).toLocaleString()}</span></div>
-    <div class="sum-row-total"><span>合計（税込）</span><span class="sum-val">¥${Math.round(tInc).toLocaleString()}</span></div>`;
-}
-
-function toggleCat(idx){items[idx].category=items[idx].category==='food'?'other':'food';render();}
-function removeItem(idx){items.splice(idx,1);render();}
-function addItem(){items.push({name:'',price:0,qty:1,subtotal:0,category:'other',confidence:1});render();}
-function confirmData(){
-  const low=items.filter(i=>i.confidence<0.7).length;
-  low>0?toast(`⚠ 要確認項目が${low}件あります`,'warn'):toast('✅ 内容に問題ありません','success');
-}
-
-// =========================================
-// Save
-// =========================================
-async function saveReceipt(btn){
-  if(!items.length){toast('保存する明細がありません','warn');return;}
-  btn.disabled=true;
-  try{
-    await learnDict(items);
-    const thumb=currentFiles.length?await makeThumbnail(currentFiles[0]):null;
-    const tf=settings.taxFood/100,to=settings.taxOther/100;
-    const taxedItems=items.map(i=>({
-      ...i,
-      taxRate:i.category==='food'?settings.taxFood:settings.taxOther,
-      taxedSubtotal:i.subtotal*(1+(i.category==='food'?tf:to))
-    }));
-    await dbAdd('receipts',{
-      store:document.getElementById('store').value.trim()||'汎用',
-      date:document.getElementById('date').value||new Date().toISOString().split('T')[0],
-      items:taxedItems,thumb,
-      taxSnapshot:{food:settings.taxFood,other:settings.taxOther},
-      createdAt:Date.now()
-    });
-    await loadDict();
-    toast('✅ 保存しました','success');
-    items=[];currentFiles=[];
-    document.getElementById('file').value='';
-    document.getElementById('fileName').textContent='';
-    document.getElementById('scanBtn').disabled=true;
-    document.getElementById('metaCard').style.display='none';
-    document.getElementById('itemsCard').style.display='none';
-    await cleanOldData();
-    switchTab('home');
-  }catch(err){toast('❌ '+err.message,'error');}
-  finally{btn.disabled=false;}
-}
-
-async function cleanOldData(){
-  const all=await dbGetAll('receipts');
-  const cutoff=Date.now()-settings.retentionDays*86400000;
-  for(const r of all) if(r.createdAt<cutoff) await dbDelete('receipts',r.id);
-}
-
-// =========================================
-// History
-// =========================================
-let histFilter='all';
-function setHistFilter(f,btn){
-  histFilter=f;
-  ['all','food','other'].forEach(k=>{
-    const c=document.getElementById('hchip-'+k);
-    c.className='filter-chip'+(k===f?' active-'+k:'');
-  });
-  loadHistory();
-}
-
-async function loadHistory(){
-  const el=document.getElementById('historyList');
-  el.innerHTML='<div class="empty"><span>⏳</span>読み込み中...</div>';
-  try{
-    const all=await dbGetAll('receipts');
-    const period=document.getElementById('histPeriod').value;
-    const data=filterData(all,period,histFilter);
-
-    let hFood=0,hOther=0,hTax=0;
-    data.forEach(r=>r.items.forEach(i=>{
-      if(histFilter!=='all'&&i.category!==histFilter) return;
-      const inc=i.taxedSubtotal||0,rate=(i.taxRate||10)/100;
-      if(i.category==='food') hFood+=inc; else hOther+=inc;
-      hTax+=inc/(1+rate)*rate;
-    }));
-    const sb=document.getElementById('histSummaryBox');
-    sb.style.display=data.length?'block':'none';
-    document.getElementById('hFood').textContent='¥'+Math.round(hFood).toLocaleString();
-    document.getElementById('hOther').textContent='¥'+Math.round(hOther).toLocaleString();
-    document.getElementById('hTax').textContent='¥'+Math.round(hTax).toLocaleString();
-    document.getElementById('hTotal').textContent='¥'+Math.round(hFood+hOther).toLocaleString();
-
-    if(!data.length){el.innerHTML='<div class="empty"><span>📭</span>レシートなし</div>';return;}
-
-    el.innerHTML=data.map(r=>{
-      const dispItems=histFilter==='all'?r.items:r.items.filter(i=>i.category===histFilter);
-      const total=dispItems.reduce((s,i)=>s+(i.taxedSubtotal||0),0);
-      const ds=new Date(r.date).toLocaleDateString('ja-JP',{month:'short',day:'numeric'});
-      const thumb=r.thumb
-        ?`<img class="history-thumb" src="${r.thumb}" onclick="openModal(${r.id})" alt="レシート">`
-        :`<div class="history-thumb-ph">🧾</div>`;
-      const cats=dispItems.reduce((acc,i)=>{acc[i.category]=(acc[i.category]||0)+(i.taxedSubtotal||0);return acc;},{});
-      const catStr=[cats.food?`食品¥${Math.round(cats.food).toLocaleString()}`:'',cats.other?`他¥${Math.round(cats.other).toLocaleString()}`:''].filter(Boolean).join(' / ');
-      return`<div class="history-item">
-        ${thumb}
-        <div class="history-info" onclick="openModal(${r.id})">
-          <div class="history-store">${escHtml(r.store||'汎用')}</div>
-          <div class="history-date">${ds}</div>
-          <div class="history-total">¥${Math.round(total).toLocaleString()}</div>
-          <div class="history-cats">${escHtml(catStr)}</div>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="deleteReceipt(${r.id})">🗑</button>
-      </div>`;
-    }).join('');
-  }catch(err){
-    el.innerHTML='<div class="empty"><span>❌</span>読み込み失敗</div>';
-    toast('履歴の取得に失敗しました','error');
-  }
-}
-
-// =========================================
-// Modal
-// =========================================
-async function openModal(id){
-  const all=await dbGetAll('receipts');
-  const r=all.find(x=>x.id===id);if(!r) return;
-  document.getElementById('modalTitle').textContent=r.store||'汎用';
-  const imgEl=document.getElementById('modalImg');
-  if(r.thumb){imgEl.src=r.thumb;imgEl.classList.add('show');}else{imgEl.classList.remove('show');}
-  const its=r.items||[];
-  document.getElementById('modalItems').innerHTML=its.map(i=>`
-    <div class="receipt-item-row">
-      <div class="item-dot ${i.category==='food'?'item-dot-food':'item-dot-other'}"></div>
-      <div class="item-nm">${escHtml(i.name)}</div>
-      ${i.category==='food'?'<span class="tax-tag">軽8%</span>':''}
-      <div class="item-qt">×${i.qty}</div>
-      <div class="item-pr">¥${Math.round(i.taxedSubtotal||0).toLocaleString()}</div>
-    </div>`).join('');
-  const sum=c=>its.filter(i=>i.category===c).reduce((s,i)=>s+(i.taxedSubtotal||0),0);
-  const f=sum('food'),o=sum('other'),t=f+o;
-  const tax=its.reduce((s,i)=>{const rate=(i.taxRate||10)/100;return s+(i.taxedSubtotal||0)/(1+rate)*rate;},0);
-  document.getElementById('modalSummary').innerHTML=`
-    <div class="summary-box">
-      <div class="sum-row"><span>🥦 食品</span><span class="sum-val">¥${Math.round(f).toLocaleString()}</span></div>
-      <div class="sum-row"><span>📦 その他</span><span class="sum-val">¥${Math.round(o).toLocaleString()}</span></div>
-      <div class="sum-row"><span>消費税</span><span class="sum-val">¥${Math.round(tax).toLocaleString()}</span></div>
-      <div class="sum-row-total"><span>合計（税込）</span><span class="sum-val">¥${Math.round(t).toLocaleString()}</span></div>
-    </div>`;
-  document.getElementById('modalOverlay').classList.add('show');
-}
-function closeModal(e){if(e.target===document.getElementById('modalOverlay'))closeModalDirect();}
-function closeModalDirect(){document.getElementById('modalOverlay').classList.remove('show');}
-
-// =========================================
-// Export / Clear
-// =========================================
-async function exportData(){
-  const data=await dbGetAll('receipts');
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='receipts_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);
-}
-async function clearAllData(){
-  const input=prompt('全データを削除します。確認のため「DELETE」と入力してください。');
-  if(input!=='DELETE'){toast('キャンセルしました','warn');return;}
-  await dbClear('receipts');await dbClear('dictionary');
-  toast('全データを削除しました','warn');
-  renderHome();loadHistory();
-}
-
-// =========================================
-// Init
-// =========================================
-(async()=>{
-  await openDB();
-  loadSettings();
-  await loadDict();
-  await cleanOldData();
-  renderHome();
-})();
 </script>
-<script src="tesseract.min.js"></script>
+
 </body>
 </html>
