@@ -3,50 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Receipt AI Pro - High Precision</title>
+    <title>Receipt AI Pro</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
         :root { --primary: #2563eb; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
-        body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 50px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; overflow-x: hidden; }
         .container { max-width: 500px; margin: auto; padding: 16px; }
         
-        /* カメラエリア */
-        .preview-box { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 10px; border: 2px solid #334155; }
-        video { width: 100%; display: block; }
+        /* カメラ・プレビュー */
+        .preview-box { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #000; border: 2px solid #334155; aspect-ratio: 4/3; }
+        video { width: 100%; height: 100%; object-fit: cover; }
         .scan-line { position: absolute; width: 100%; height: 2px; background: var(--accent); top: 0; animation: scan 2s linear infinite; opacity: 0.5; }
         @keyframes scan { from { top: 0; } to { top: 100%; } }
 
-        /* ボタン */
-        .controls { display: flex; gap: 8px; margin-bottom: 15px; }
-        button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-start { background: var(--primary); color: white; }
-        .btn-stop { background: #475569; color: white; }
-        button:active { transform: scale(0.98); }
-
-        /* リスト表示 */
-        .card { background: var(--card); padding: 12px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
-        .label { font-size: 12px; color: var(--accent); font-weight: bold; margin-bottom: 8px; display: block; }
-        .item { padding: 10px; border-bottom: 1px solid #334155; cursor: pointer; font-size: 14px; }
-        .item:last-child { border-bottom: none; }
-        .item:hover { background: #334155; }
+        /* UIパーツ */
+        .btn { padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: var(--primary); color: white; width: 100%; }
+        .btn-save { background: #10b981; color: white; flex: 1; }
+        .btn-secondary { background: #334155; color: white; }
         
-        /* ログ（デバッグ用） */
-        #debug-log { font-size: 10px; color: #94a3b8; height: 40px; overflow-y: auto; background: #000; padding: 5px; border-radius: 4px; margin-top: 5px; }
-        .small { font-size: 12px; color: #94a3b8; }
+        .card { background: var(--card); padding: 16px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
+        .label { font-size: 11px; color: var(--accent); font-weight: bold; text-transform: uppercase; margin-bottom: 8px; display: block; }
+        
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; cursor: pointer; }
+        .candidate-item { background: #334155; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; font-size: 14px; cursor: pointer; }
+        
+        #debug-log { font-size: 10px; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; }
         .price { color: var(--accent); font-weight: bold; }
+        
+        /* タブバー */
+        .nav-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; display: flex; border-top: 1px solid #334155; z-index: 100; }
+        .nav-item { flex: 1; padding: 15px; text-align: center; font-size: 12px; cursor: pointer; color: #94a3b8; }
+        .nav-item.active { color: var(--accent); border-top: 2px solid var(--accent); }
+
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🧾 Receipt AI Pro</h1>
+    <div id="view-scan">
+        <h1 style="font-size: 1.2rem;">🔍 Receipt AI Scan</h1>
+        
+        <div id="debug-log">システム起動中...</div>
 
-    <div class="preview-box">
-        <video id="video" autoplay playsinline></video>
-        <div class="scan-line"></div>
+        <div class="preview-box">
+            <video id="video" autoplay playsinline></video>
+            <div class="scan-line"></div>
+        </div>
+        
+        <div style="display:flex; gap:8px; margin: 12px 0;">
+            <button id="btn-toggle" class="btn btn-primary" onclick="toggleCamera()">📷 カメラ開始</button>
+            <button class="btn btn-save" onclick="saveToHistory()">💾 保存</button>
+        </div>
+
+        <div class="card">
+            <span class="label">検出された候補</span>
+            <div id="candidates"></div>
+        </div>
+
+        <div class="card">
+            <span class="label">現在の明細</span>
+            <div id="current-list"></div>
+            <div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-top: 10px;">
+                合計: <span id="total-price" class="price">¥0</span>
+            </div>
+        </div>
     </div>
+
+    <div id="view-history" class="hidden">
+        <h1 style="font-size: 1.2rem;">📅 履歴</h1>
+        <div id="history-container"></div>
+    </div>
+</div>
+
+<nav class="nav-bar">
+    <div class="nav-item active" id="nav-scan" onclick="showTab('scan')">スキャン</div>
+    <div class="nav-item" id="nav-history" onclick="showTab('history')">履歴</div>
+</nav>
+
+<canvas id="canvas" style="display:none"></canvas>
+
+<script>
+let worker = null, stream = null, isRunning = false, items = [], db = null;
+
+// 1. データベース初期化
+const req = indexedDB.open("ReceiptProDB", 1);
+req.onupgradeneeded = e => { e.target.result.createObjectStore("receipts", { keyPath: "id", autoIncrement: true }); };
+req.onsuccess = e => { db = e.target.result; renderHistory(); };
+
+// 2. OCRエンジン初期化
+async function initOCR() {
+    try {
+        log("エンジン読込中...");
+        worker = await Tesseract.createWorker();
+        await worker.loadLanguage('jpn+eng');
+        await worker.initialize('jpn+eng');
+        log("準備完了：カメラを開始してください");
+    } catch (e) { log("エラー：読込に失敗しました"); }
+}
+initOCR();
+
+// 3. カメラ制御
+async function toggleCamera() {
+    const btn = document.getElementById('btn-toggle');
+    if (isRunning) {
+        stopCamera();
+        btn.innerText = "📷 カメラ再開";
+    } else {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            document.getElementById('video').srcObject = stream;
+            isRunning = true;
+            btn.innerText = "⏹️ 停止";
+            ocrLoop();
+        } catch (err) { alert("カメラを起動できません"); }
+    }
+}
+
+function stopCamera() {
+    isRunning = false;
+    if (stream) stream.getTracks().forEach(t => t.stop());
+}
+
+// 4. OCRループ & 画像処理
+async function ocrLoop() {
+    if (!isRunning || !worker) return;
+    const v = document.getElementById('video');
+    const c = document.getElementById('canvas');
+    const ctx = c.getContext('2d');
+    c.width = v.videoWidth; c.height = v.videoHeight;
     
-    <div class="controls">
-        <button id="btn-toggle" class="btn-start" onclick="toggleCamera()">📷 カメラ開始</button>
-    </div>
+    // 高精度フィルタ適用
+    ctx.filter = 'grayscale(1) contrast(200%) brightness(110%)';
+    ctx.drawImage(v, 0, 0);
+
+    try {
+        const { data: { text } } = await worker.recognize(c);
+        log("スキャン中...");
+        const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 2 && !/合計|税込|TEL/.test(l)).slice(0, 5);
+        renderCandidates(lines);
+    } catch (e) {}
+
+    if (isRunning) setTimeout(ocrLoop, 1500);
+}
+
+// 5. UI操作
+function renderCandidates(lines) {
+    document.getElementById('candidates').innerHTML = lines.map(l => 
+        `<div class="candidate-item" onclick="addItem('${l.replace(/'/g,"")}')">${l}</div>`).join('');
+}
+
+function addItem(line) {
+    const m = line.match(/(.+?)\s*(\d+)/);
+    items.push(m ? { name: m[1], price: parseInt(m[2]) } : { name: line, price: 0 });
+    renderCurrent();
+}
+
+function renderCurrent() {
+    let total = 0;
+    document.getElementById('current-list').innerHTML = items.map((it, idx) => {
+        total += it.price;
+        return `<div class="item-row" onclick="items.splice(${idx},1);renderCurrent()">
+            <span>${it.name}</span><span class="price">¥${it.price.toLocaleString()}</span>
+        </div>`;
+    }).join('');
+    document.getElementById('total-price').innerText = `¥${total.toLocaleString()}`;
+}
+
+// 6. 保存・履歴
+function saveToHistory() {
+    if (items.length === 0) return;
+    const tx = db.transaction("receipts", "readwrite");
+    tx.objectStore("receipts").add({ date: new Date().toLocaleString(), items: [...items], total: items.reduce((a,b)=>a+b.price, 0) });
+    tx.oncomplete = () => { alert("保存しました"); items = []; renderCurrent(); renderHistory(); };
+}
+
+function renderHistory() {
+    const store = db.transaction("receipts").objectStore("receipts");
+    store.getAll().onsuccess = e => {
+        const res = e.target.result.reverse();
+        document.getElementById('history-container').innerHTML = res.map(h => `
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:8px">
+                    <span>${h.date}</span><span class="price">¥${h.total.toLocaleString()}</span>
+                </div>
+                <div style="font-size:11px; opacity:0.7">${h.items.map(i=>i.name).join(", ")}</div>
+            </div>
+        `).join('');
+    };
+}
+
+// 7. タブ切り替え
+function showTab(tab) {
+    document.getElementById('view-scan').classList.toggle('hidden', tab !== 'scan');
+    document.getElementById('view-history').classList.toggle('hidden', tab !== 'history');
+    document.getElementById('nav-scan').classList.toggle('active', tab === 'scan');
+    document.getElementById('nav-history').classList.toggle('active', tab === 'history');
+    if (tab === 'history') stopCamera();
+}
+
+function log(m) { document.getElementById('debug-log').innerText = m; }
+</script>
+</body>
+</html>
