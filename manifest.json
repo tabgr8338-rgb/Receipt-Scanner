@@ -1,0 +1,17 @@
+{
+  "short_name": "ReceiptAI",
+  "name": "Receipt AI Pro - 家計簿スキャン",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2845/2845682.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "index.html",
+  "background_color": "#fafafa",
+  "display": "standalone",
+  "scope": "./",
+  "theme_color": "#111111",
+  "description": "ブラウザ完結型のレシートOCR家計簿アプリ"
+}
