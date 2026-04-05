@@ -3,138 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Receipt AI Pro</title>
+    <title>Receipt AI Pro - Precision Mode</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
     <style>
         :root { --primary: #2563eb; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
-        body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 20px; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 30px; }
         .container { max-width: 500px; margin: auto; padding: 16px; }
-        .preview-box { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #000; border: 2px solid #334155; aspect-ratio: 4/3; }
+        .preview-box { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #000; border: 2px solid #334155; aspect-ratio: 3/4; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .btn { padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin: 8px 0; background: var(--primary); color: white; }
+        #canvas-preview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; object-fit: cover; }
+        .btn { padding: 16px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; margin: 8px 0; font-size: 16px; }
+        .btn-scan { background: var(--primary); color: white; }
+        .btn-reset { background: #334155; color: white; }
         .card { background: var(--card); padding: 16px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
-        #status-bar { font-size: 12px; color: #94a3b8; background: #000; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--accent); }
-        .candidate-item { background: #334155; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--accent); font-size: 14px; }
+        #status-bar { font-size: 13px; color: var(--accent); background: #000; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; border: 1px solid #334155; }
+        .item-row { background: #334155; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--accent); font-size: 15px; }
+        .loader { display: none; border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🔍 Receipt AI Pro</h1>
-    <div id="status-bar">初期化中...</div>
+    <div id="status-bar">エンジン起動中...</div>
 
     <div class="preview-box">
         <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas-preview"></canvas>
     </div>
     
-    <button id="btn-toggle" class="btn" onclick="toggleCamera()">📷 カメラ開始</button>
+    <button id="btn-main" class="btn btn-scan" onclick="processImage()" disabled>📷 レシートを撮影して解析</button>
+    <button id="btn-retry" class="btn btn-reset" onclick="resetCamera()" style="display:none">🔄 撮り直す</button>
 
     <div class="card">
-        <span style="font-size:11px; color:var(--accent); font-weight:bold;">読み取り結果</span>
-        <div id="candidates" style="margin-top:10px;"></div>
+        <span style="font-size:12px; color:var(--accent); font-weight:bold;">解析された項目</span>
+        <div id="results" style="margin-top:10px;"></div>
     </div>
 </div>
 
-<canvas id="canvas" style="display:none"></canvas>
+<canvas id="hidden-canvas" style="display:none"></canvas>
 
 <script>
 let worker = null;
 let stream = null;
-let isRunning = false;
 
-// 1. エンジン初期化
-async function initOCR() {
+async function init() {
     try {
-        setStatus("エンジン読み込み中...");
-        // 外部ファイルの読み込み先を明示的に指定してエラーを回避
         worker = await Tesseract.createWorker({
             workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/worker.min.js',
             corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.2/tesseract-core.wasm.js',
-            logger: m => {
-                if (m.status === 'recognizing text') {
-                    setStatus(`解析中... ${Math.round(m.progress * 100)}%`);
-                }
-            }
         });
-
         await worker.loadLanguage('jpn+eng');
         await worker.initialize('jpn+eng');
-        setStatus("✅ 準備完了：カメラを開始してください");
-    } catch (e) { 
-        setStatus("❌ 初期化失敗。ブラウザの追跡防止をオフにしてみてください");
-        console.error(e);
-    }
-}
-initOCR();
-
-async function toggleCamera() {
-    if (isRunning) {
-        isRunning = false;
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        document.getElementById('btn-toggle').innerText = "📷 カメラ開始";
-        setStatus("スキャン停止中");
-    } else {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment" } 
-            });
-            document.getElementById('video').srcObject = stream;
-            isRunning = true;
-            document.getElementById('btn-toggle').innerText = "⏹️ 停止";
-            ocrLoop();
-        } catch (err) { 
-            alert("カメラを起動できません"); 
-        }
+        document.getElementById('status-bar').innerText = "✅ 準備完了：レシートを枠に入れてください";
+        document.getElementById('btn-main').disabled = false;
+        startCamera();
+    } catch (e) {
+        document.getElementById('status-bar').innerText = "❌ エラー: ブラウザ設定を確認してください";
     }
 }
 
-async function ocrLoop() {
-    if (!isRunning || !worker) return;
+async function startCamera() {
+    stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } 
+    });
+    document.getElementById('video').srcObject = stream;
+}
+
+async function processImage() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('hidden-canvas');
+    const preview = document.getElementById('canvas-preview');
+    const ctx = canvas.getContext('2d');
+
+    // 1. 静止画をキャプチャ（最高画質）
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     
-    const v = document.getElementById('video');
-    const c = document.getElementById('canvas');
-    const ctx = c.getContext('2d');
+    // 前処理：コントラストを極限まで上げる
+    ctx.filter = 'contrast(200%) grayscale(1)';
+    ctx.drawImage(video, 0, 0);
+
+    // 2. プレビュー画面を止める（写真のように見せる）
+    preview.width = video.videoWidth;
+    preview.getContext('2d').drawImage(canvas, 0, 0);
+    preview.style.display = "block";
+    video.style.display = "none";
     
-    // 現在のカメラ映像のサイズに合わせる
-    if (v.videoWidth > 0) {
-        c.width = v.videoWidth; 
-        c.height = v.videoHeight;
+    // 3. UIの切り替え
+    document.getElementById('btn-main').style.display = "none";
+    document.getElementById('btn-retry').style.display = "block";
+    document.getElementById('status-bar').innerHTML = '<span class="loader"></span> じっくり解析中... 5〜10秒かかります';
+
+    try {
+        // 4. 解析実行（静止画なので精度が上がります）
+        const { data: { text } } = await worker.recognize(canvas);
         
-        // 前処理（グレースケール＋コントラスト）
-        ctx.filter = 'grayscale(1) contrast(200%)';
-        ctx.drawImage(v, 0, 0, c.width, c.height);
-
-        try {
-            // 【修正のポイント】Blob変換を介さず、Canvas要素をそのまま渡す
-            const { data: { text } } = await worker.recognize(c);
-            
-            const lines = text.split("\n")
-                .map(l => l.trim())
-                .filter(l => l.length >= 1)
-                .slice(0, 5);
-            
-            renderLines(lines);
-        } catch (e) {
-            console.error("OCR解析エラー:", e);
-        }
-    }
-
-    if (isRunning) {
-        // 連続で回すと重いため、解析完了後に次のスキャンを予約
-        setTimeout(ocrLoop, 1500); 
+        // 5. 意味のある行だけを抽出（数字が含まれる行を優先）
+        const lines = text.split("\n")
+            .map(l => l.trim())
+            .filter(l => l.length >= 2 && !/合計|税込|税率|TEL/.test(l));
+        
+        renderResults(lines);
+        document.getElementById('status-bar').innerText = "✅ 解析完了";
+    } catch (e) {
+        document.getElementById('status-bar').innerText = "⚠️ 解析に失敗しました";
     }
 }
 
-function renderLines(lines) {
-    const container = document.getElementById('candidates');
+function resetCamera() {
+    document.getElementById('canvas-preview').style.display = "none";
+    document.getElementById('video').style.display = "block";
+    document.getElementById('btn-main').style.display = "block";
+    document.getElementById('btn-retry').style.display = "none";
+    document.getElementById('status-bar').innerText = "レシートにピントを合わせてください";
+    document.getElementById('results').innerHTML = "";
+}
+
+function renderResults(lines) {
+    const container = document.getElementById('results');
     if (lines.length === 0) {
-        container.innerHTML = '<div style="font-size:12px; opacity:0.5">解析中...</div>';
+        container.innerHTML = "文字が読み取れませんでした。もっと明るい場所で、近づけて撮ってください。";
         return;
     }
-    container.innerHTML = lines.map(l => `<div class="candidate-item">${l}</div>`).join('');
+    container.innerHTML = lines.map(l => `<div class="item-row">${l}</div>`).join('');
 }
 
-function setStatus(m) { document.getElementById('status-bar').innerText = m; }
+init();
 </script>
 </body>
 </html>
