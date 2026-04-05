@@ -3,226 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Receipt AI Pro - Final</title>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <title>Receipt AI Pro - Debug</title>
+    <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
         :root { --primary: #2563eb; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
         body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; }
         .container { max-width: 500px; margin: auto; padding: 16px; }
-        
-        /* カメラ・プレビュー */
         .preview-box { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #000; border: 2px solid #334155; aspect-ratio: 4/3; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .scan-line { position: absolute; width: 100%; height: 2px; background: var(--accent); top: 0; animation: scan 2s linear infinite; opacity: 0.5; }
-        @keyframes scan { from { top: 0; } to { top: 100%; } }
-
-        /* UIパーツ */
-        .btn { padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-primary { background: var(--primary); color: white; width: 100%; }
-        .btn-save { background: #10b981; color: white; flex: 1; }
-        
-        .card { background: var(--card); padding: 16px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
-        .label { font-size: 11px; color: var(--accent); font-weight: bold; margin-bottom: 8px; display: block; }
-        
-        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; cursor: pointer; }
-        .candidate-item { background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 6px; font-size: 14px; cursor: pointer; border-left: 4px solid var(--accent); }
-        
+        .btn { padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin: 5px 0; }
+        .btn-primary { background: var(--primary); color: white; }
+        .card { background: var(--card); padding: 12px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
         #status-bar { font-size: 12px; color: #94a3b8; background: #000; padding: 8px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--accent); }
-        .price { color: var(--accent); font-weight: bold; }
-        
-        /* ナビゲーション */
-        .nav-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; display: flex; border-top: 1px solid #334155; }
-        .nav-item { flex: 1; padding: 15px; text-align: center; cursor: pointer; font-size: 14px; }
-        .nav-item.active { color: var(--accent); font-weight: bold; border-top: 2px solid var(--accent); }
+        .candidate-item { background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 6px; border-left: 4px solid var(--accent); }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="view-scan">
-        <h1>🔍 Receipt AI Pro</h1>
-        
-        <div id="status-bar">エンジン起動中... お待ちください</div>
+    <h1>🔍 Receipt AI Pro</h1>
+    <div id="status-bar">初期化中...</div>
 
-        <div class="preview-box">
-            <video id="video" autoplay playsinline></video>
-            <div class="scan-line"></div>
-        </div>
-        
-        <div style="display:flex; gap:8px; margin: 12px 0;">
-            <button id="btn-toggle" class="btn btn-primary" onclick="toggleCamera()">📷 カメラ開始</button>
-            <button class="btn btn-save" onclick="saveToHistory()">💾 履歴に保存</button>
-        </div>
-
-        <div class="card">
-            <span class="label">読み取り候補 (タップして追加)</span>
-            <div id="candidates"></div>
-        </div>
-
-        <div class="card">
-            <span class="label">現在の明細</span>
-            <div id="current-list"></div>
-            <div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-top: 10px;">
-                合計: <span id="total-price" class="price">¥0</span>
-            </div>
-        </div>
+    <div class="preview-box">
+        <video id="video" autoplay playsinline></video>
     </div>
+    
+    <button id="btn-toggle" class="btn btn-primary" onclick="toggleCamera()">📷 カメラ開始</button>
 
-    <div id="view-history" class="hidden">
-        <h1>📅 保存履歴</h1>
-        <div id="history-container"></div>
+    <div class="card">
+        <span style="font-size:11px; color:var(--accent)">読み取り結果（デバッグ表示）</span>
+        <div id="candidates"></div>
     </div>
 </div>
-
-<nav class="nav-bar">
-    <div class="nav-item active" id="nav-scan" onclick="showTab('scan')">スキャン</div>
-    <div class="nav-item" id="nav-history" onclick="showTab('history')">履歴</div>
-</nav>
 
 <canvas id="canvas" style="display:none"></canvas>
 
 <script>
-let worker = null, stream = null, isRunning = false, items = [], db = null;
+let worker = null, stream = null, isRunning = false;
 
-// 1. データベース(履歴)の準備
-const req = indexedDB.open("ReceiptFinalDB", 1);
-req.onupgradeneeded = e => { e.target.result.createObjectStore("receipts", { keyPath: "id", autoIncrement: true }); };
-req.onsuccess = e => { db = e.target.result; renderHistory(); };
-
-// 2. OCRエンジンの初期化 (高精度設定)
+// 1. OCRエンジン初期化（ストレージ制限を回避する設定）
 async function initOCR() {
     try {
-        setStatus("エンジン読み込み中...");
-        worker = await Tesseract.createWorker();
+        setStatus("エンジン読み込み開始...");
+        // Tesseract.js のコアを確実に読み込む
+        worker = await Tesseract.createWorker({
+            cacheMethod: 'none', // ストレージブロック対策
+            workerBlobURL: false // 追跡防止対策
+        });
         await worker.loadLanguage('jpn+eng');
         await worker.initialize('jpn+eng');
-        setStatus("✅ 準備完了！カメラを開始してください");
-    } catch (e) { setStatus("❌ エンジン起動エラー。再読み込みしてください"); }
+        setStatus("✅ 準備完了：カメラを開始してください");
+    } catch (e) { 
+        setStatus("❌ 初期化エラー: " + e.message);
+        console.error(e);
+    }
 }
 initOCR();
 
-// 3. カメラ開始/停止
+// 2. カメラ制御
 async function toggleCamera() {
-    if (!worker) return alert("エンジンの起動を待ってください");
-    const btn = document.getElementById('btn-toggle');
     if (isRunning) {
-        stopCamera();
-        btn.innerText = "📷 カメラ開始";
+        isRunning = false;
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        document.getElementById('btn-toggle').innerText = "📷 カメラ開始";
     } else {
         try {
-            // 高解像度を要求
             stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                video: { facingMode: "environment", width: 640 } 
             });
             document.getElementById('video').srcObject = stream;
             isRunning = true;
-            btn.innerText = "⏹️ スキャン停止";
+            document.getElementById('btn-toggle').innerText = "⏹️ 停止";
             ocrLoop();
-        } catch (err) { alert("カメラを起動できません。HTTPS環境か確認してください"); }
+        } catch (err) { alert("カメラエラー: " + err.name); }
     }
 }
 
-function stopCamera() {
-    isRunning = false;
-    if (stream) stream.getTracks().forEach(t => t.stop());
-}
-
-// 4. 画像処理 & OCR実行
+// 3. 解析ループ（エラー修正版）
 async function ocrLoop() {
     if (!isRunning || !worker) return;
+    
     const v = document.getElementById('video');
     const c = document.getElementById('canvas');
     const ctx = c.getContext('2d');
     
-    c.width = v.videoWidth; c.height = v.videoHeight;
-    
-    // 文字をクッキリさせる画像処理
-    ctx.filter = 'grayscale(1) contrast(250%) brightness(110%)';
+    // キャンバスに描画
+    c.width = v.videoWidth; 
+    c.height = v.videoHeight;
+    ctx.filter = 'grayscale(1) contrast(200%)';
     ctx.drawImage(v, 0, 0);
 
-    try {
-        setStatus("スキャン中...");
-        const { data: { text } } = await worker.recognize(c);
-        
-        // 読み取りロジック: 2文字以上あれば表示
-        const lines = text.split("\n")
-            .map(l => l.trim())
-            .filter(l => l.length > 2 && !/合計|税込|税率|TEL/.test(l))
-            .slice(0, 6);
-        
-        renderCandidates(lines);
-        setStatus("スキャン完了 (1.5秒おきに自動更新中)");
-    } catch (e) { setStatus("スキャンエラー発生"); }
+    // 【重要】CanvasからBlob(画像データ)を生成して解析に渡す
+    c.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+            setStatus("解析中...");
+            const { data: { text } } = await worker.recognize(blob);
+            
+            // 判定を最大まで緩和（1文字でもあれば表示）
+            const lines = text.split("\n")
+                .map(l => l.trim())
+                .filter(l => l.length >= 1)
+                .slice(0, 5);
+            
+            renderLines(lines);
+            setStatus("✅ 解析成功");
+        } catch (e) {
+            setStatus("⚠️ 解析エラー");
+            console.error(e);
+        }
+    }, 'image/jpeg');
 
-    if (isRunning) setTimeout(ocrLoop, 1500);
+    if (isRunning) setTimeout(ocrLoop, 2000); // 2秒間隔
 }
 
-// 5. UIへの表示
-function renderCandidates(lines) {
+function renderLines(lines) {
     const container = document.getElementById('candidates');
     if (lines.length === 0) {
-        container.innerHTML = '<div style="font-size:12px; opacity:0.5">文字を探しています...</div>';
+        container.innerHTML = '<div style="font-size:12px; opacity:0.5">文字が検出されません...</div>';
         return;
     }
-    container.innerHTML = lines.map(l => 
-        `<div class="candidate-item" onclick="addItem('${l.replace(/'/g,"")}')">${l}</div>`).join('');
-}
-
-function addItem(line) {
-    const m = line.match(/(.+?)\s*(\d+)/); // 名前と数字を分ける
-    items.push(m ? { name: m[1], price: parseInt(m[2]) } : { name: line, price: 0 });
-    renderCurrent();
-}
-
-function renderCurrent() {
-    let total = 0;
-    document.getElementById('current-list').innerHTML = items.map((it, idx) => {
-        total += it.price;
-        return `<div class="item-row" onclick="items.splice(${idx},1);renderCurrent()">
-            <span>${it.name}</span><span class="price">¥${it.price.toLocaleString()}</span>
-        </div>`;
-    }).join('');
-    document.getElementById('total-price').innerText = `¥${total.toLocaleString()}`;
-}
-
-// 6. 保存機能
-function saveToHistory() {
-    if (items.length === 0) return alert("明細が空です");
-    const tx = db.transaction("receipts", "readwrite");
-    tx.objectStore("receipts").add({ 
-        date: new Date().toLocaleString(), 
-        items: [...items], 
-        total: items.reduce((a,b)=>a+b.price, 0) 
-    });
-    tx.oncomplete = () => { 
-        alert("履歴に保存しました"); 
-        items = []; renderCurrent(); renderHistory(); 
-    };
-}
-
-function renderHistory() {
-    const store = db.transaction("receipts").objectStore("receipts");
-    store.getAll().onsuccess = e => {
-        const res = e.target.result.reverse();
-        document.getElementById('history-container').innerHTML = res.map(h => `
-            <div class="card">
-                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px">
-                    <span>${h.date}</span><span class="price">¥${h.total.toLocaleString()}</span>
-                </div>
-                <div style="font-size:11px; opacity:0.7">${h.items.map(i=>i.name).join(", ")}</div>
-            </div>
-        `).join('');
-    };
-}
-
-// 7. タブ切り替え
-function showTab(tab) {
-    document.getElementById('view-scan').classList.toggle('hidden', tab !== 'scan');
-    document.getElementById('view-history').classList.toggle('hidden', tab !== 'history');
-    document.getElementById('nav-scan').classList.toggle('active', tab === 'scan');
-    document.getElementById('nav-history').classList.toggle('active', tab === 'history');
-    if (tab === 'history') stopCamera();
+    container.innerHTML = lines.map(l => `<div class="candidate-item">${l}</div>`).join('');
 }
 
 function setStatus(m) { document.getElementById('status-bar').innerText = m; }
