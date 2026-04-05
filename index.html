@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Receipt AI Pro - Debug</title>
-    <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
+    <title>Receipt AI Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
     <style>
         :root { --primary: #2563eb; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
         body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; }
         .container { max-width: 500px; margin: auto; padding: 16px; }
         .preview-box { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #000; border: 2px solid #334155; aspect-ratio: 4/3; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .btn { padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin: 5px 0; }
+        .btn { padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin: 8px 0; }
         .btn-primary { background: var(--primary); color: white; }
-        .card { background: var(--card); padding: 12px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
-        #status-bar { font-size: 12px; color: #94a3b8; background: #000; padding: 8px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--accent); }
-        .candidate-item { background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 6px; border-left: 4px solid var(--accent); }
-        .hidden { display: none; }
+        .card { background: var(--card); padding: 16px; border-radius: 12px; margin-top: 12px; border: 1px solid #334155; }
+        #status-bar { font-size: 12px; color: #94a3b8; background: #000; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--accent); }
+        .candidate-item { background: #334155; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--accent); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -32,8 +31,8 @@
     <button id="btn-toggle" class="btn btn-primary" onclick="toggleCamera()">📷 カメラ開始</button>
 
     <div class="card">
-        <span style="font-size:11px; color:var(--accent)">読み取り結果（デバッグ表示）</span>
-        <div id="candidates"></div>
+        <span style="font-size:11px; color:var(--accent); font-weight:bold;">読み取り結果</span>
+        <div id="candidates" style="margin-top:10px;"></div>
     </div>
 </div>
 
@@ -42,45 +41,54 @@
 <script>
 let worker = null, stream = null, isRunning = false;
 
-// 1. OCRエンジン初期化（ストレージ制限を回避する設定）
+// 1. OCRエンジン初期化（GitHub Pagesのセキュリティ制限を回避する設定）
 async function initOCR() {
     try {
-        setStatus("エンジン読み込み開始...");
-        // Tesseract.js のコアを確実に読み込む
+        setStatus("エンジン読み込み中...");
+        
+        // 【重要】外部スクリプトのブロックを避けるための設定
         worker = await Tesseract.createWorker({
-            cacheMethod: 'none', // ストレージブロック対策
-            workerBlobURL: false // 追跡防止対策
+            workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/worker.min.js',
+            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.2/tesseract-core.wasm.js',
+            logger: m => {
+                if (m.status === 'recognizing text') setStatus(`解析中... ${Math.round(m.progress * 100)}%`);
+            }
         });
+
         await worker.loadLanguage('jpn+eng');
         await worker.initialize('jpn+eng');
+        
         setStatus("✅ 準備完了：カメラを開始してください");
     } catch (e) { 
-        setStatus("❌ 初期化エラー: " + e.message);
-        console.error(e);
+        setStatus("❌ 初期化エラー。ブラウザを更新してください");
+        console.error("詳細エラー:", e);
     }
 }
+
+// 起動と同時に初期化
 initOCR();
 
-// 2. カメラ制御
 async function toggleCamera() {
     if (isRunning) {
         isRunning = false;
         if (stream) stream.getTracks().forEach(t => t.stop());
         document.getElementById('btn-toggle').innerText = "📷 カメラ開始";
+        setStatus("停止中");
     } else {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment", width: 640 } 
+                video: { facingMode: "environment", width: { ideal: 1280 } } 
             });
             document.getElementById('video').srcObject = stream;
             isRunning = true;
-            document.getElementById('btn-toggle').innerText = "⏹️ 停止";
+            document.getElementById('btn-toggle').innerText = "⏹️ スキャン停止";
             ocrLoop();
-        } catch (err) { alert("カメラエラー: " + err.name); }
+        } catch (err) { 
+            alert("カメラを起動できません。ブラウザの設定で許可してください。"); 
+        }
     }
 }
 
-// 3. 解析ループ（エラー修正版）
 async function ocrLoop() {
     if (!isRunning || !worker) return;
     
@@ -88,40 +96,34 @@ async function ocrLoop() {
     const c = document.getElementById('canvas');
     const ctx = c.getContext('2d');
     
-    // キャンバスに描画
     c.width = v.videoWidth; 
     c.height = v.videoHeight;
-    ctx.filter = 'grayscale(1) contrast(200%)';
+    
+    // OCR用に画像を最適化
+    ctx.filter = 'grayscale(1) contrast(200%) brightness(110%)';
     ctx.drawImage(v, 0, 0);
 
-    // 【重要】CanvasからBlob(画像データ)を生成して解析に渡す
-    c.toBlob(async (blob) => {
-        if (!blob) return;
-        try {
-            setStatus("解析中...");
-            const { data: { text } } = await worker.recognize(blob);
-            
-            // 判定を最大まで緩和（1文字でもあれば表示）
-            const lines = text.split("\n")
-                .map(l => l.trim())
-                .filter(l => l.length >= 1)
-                .slice(0, 5);
-            
-            renderLines(lines);
-            setStatus("✅ 解析成功");
-        } catch (e) {
-            setStatus("⚠️ 解析エラー");
-            console.error(e);
-        }
-    }, 'image/jpeg');
+    try {
+        // Canvasから直接データを送る
+        const { data: { text } } = await worker.recognize(c);
+        
+        const lines = text.split("\n")
+            .map(l => l.trim())
+            .filter(l => l.length >= 1) // 1文字でもあれば出す
+            .slice(0, 5);
+        
+        renderLines(lines);
+    } catch (e) {
+        console.error("OCRエラー:", e);
+    }
 
-    if (isRunning) setTimeout(ocrLoop, 2000); // 2秒間隔
+    if (isRunning) setTimeout(ocrLoop, 1500); 
 }
 
 function renderLines(lines) {
     const container = document.getElementById('candidates');
     if (lines.length === 0) {
-        container.innerHTML = '<div style="font-size:12px; opacity:0.5">文字が検出されません...</div>';
+        container.innerHTML = '<div style="font-size:12px; opacity:0.5">文字を探しています...</div>';
         return;
     }
     container.innerHTML = lines.map(l => `<div class="candidate-item">${l}</div>`).join('');
